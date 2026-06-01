@@ -90,7 +90,7 @@ def flowchart_plot(plot_df):
 
     specie_dim = go.parcats.Dimension(values=subset_df["species"], label="Specie")
     event_dim = go.parcats.Dimension(values=subset_df["event"], label="Event")
-    call_type_dim = go.parcats.Dimension(values=subset_df["call_type"], label="Call Type")
+    call_type_dim = go.parcats.Dimension(values=subset_df["call_type"], label="Vocalisation Type")
 
     fig = go.Figure(data=[go.Parcats(dimensions=[specie_dim, event_dim, call_type_dim], 
                                      line={"color": px.colors.qualitative.Plotly[0]},

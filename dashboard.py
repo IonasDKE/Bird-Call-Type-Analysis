@@ -126,15 +126,23 @@ app.layout = html.Div(style=CARD_STYLE, children=[
         ]),
     ]),
 
-    html.Div(style=CARD_STYLE, children=[
-        html.Div(style=CARD_STYLE, children=[
-            html.Label('Distribution of Events Over the Day', style=LABEL_STYLE),
-            dcc.Graph(figure=bar_plot(plot_df)),
+    html.Div(style=CARD_SPLIT_STYLE, children=[
+
+        html.Div(style={"flex": "1"}, children=[
+            html.Label('Event distribution per species', style=LABEL_STYLE),
+            dcc.Graph(id='vocalisation-event-bar')
         ]),
-        html.Div(style=CARD_STYLE, children=[
-            html.Label('Flowchart of Species, Events, and Call Types', style=LABEL_STYLE),
-            dcc.Graph(figure=flowchart_plot(plot_df))
-        ])
+
+        html.Div(style={"flex": "2"}, children=[
+            html.Div(style=CARD_STYLE, children=[
+                html.Label('Distribution of Events Over the Day', style=LABEL_STYLE),
+                dcc.Graph(figure=bar_plot(plot_df)),
+            ]),
+            html.Div(style=CARD_STYLE, children=[
+                html.Label('Flowchart of Species, Events, and Call Types', style=LABEL_STYLE),
+                dcc.Graph(figure=flowchart_plot(plot_df))
+            ])
+        ]),
     ])
 ])
 
@@ -203,6 +211,21 @@ def indicator_songs(selected_species, plot_df=plot_df):
         plot_bgcolor=px.colors.qualitative.Pastel[3],
     )
     return fig
+
+@callback(
+    Output('vocalisation-event-bar', 'figure'),
+    Input('species-dropdown', 'value'))
+def vocalisation_event_bar(selected_species, plot_df=plot_df):
+    subset_df = plot_df[plot_df["species"].isin(selected_species) & plot_df["event"].notnull()]
+    grouped = subset_df.groupby(["species", "event"]).size().reset_index(name="total_count")
+    grouped.sort_values(by="total_count", ascending=False, inplace=True)
+    fig_bar = px.bar(grouped, x="total_count", y="species", color="event", title="Distribution of Events per Species", orientation="h")
+    fig_bar.update_layout(xaxis_title="Total Vocalisations with Event", yaxis_title="Species", legend_title="Events")
+    fig_bar.update_xaxes(tickangle=45)
+    fig_bar.update_yaxes(categoryorder="total ascending")
+
+    return fig_bar
+
 
 @callback(
     Output('population-table', 'figure'),
