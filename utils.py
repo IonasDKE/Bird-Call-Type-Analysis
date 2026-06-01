@@ -1,5 +1,8 @@
+import os
+
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 
 def process_metadata(df):
@@ -33,29 +36,33 @@ def process_metadata(df):
     
 
 def get_plot_data(df, selected_species):
-    MIT_classes_of_interest = ["Crowd", "Civil defense siren", "Railroad car, train wagon", "Vehicle", "Motorcycle", "Thunderstorm", "Air horn, truck horn", "Grunt", "Engine starting", "Siren", "Medium engine (mid frequency)", "Thunder", "Train", "Car", "Vehicle horn, car horn, honking", "Roaring cats (lions, tigers)", "Roar", "Dog"]
-    plot_df = pd.DataFrame(columns = ["hour", "total_count", "species", "call_type", "previous_event"])
+    MIT_classes_of_interest = ["Crowd", "Civil defense siren", "Railroad car, train wagon", "Vehicle", "Motorcycle", "Thunderstorm", "Air horn, truck horn", "Engine starting", "Siren", "Medium engine (mid frequency)", "Thunder", "Train", "Car", "Vehicle horn, car horn, honking", "Roaring cats (lions, tigers)", "Roar", "Dog"]
+    plot_df = pd.DataFrame(columns = ["hour", "total_count", "species", "call_type", "event"])
 
-    previous_event = None
-    for _, row in df.iterrows():
-        if row["MIT_AST_label"] in MIT_classes_of_interest:
-            current_event = row["MIT_AST_label"]
-        else:
-            current_event = None
+    if os.path.exists("plot_data.csv"):
+        plot_df = pd.read_csv("plot_data.csv")
 
-        if row["Final prediction"] is not None:
-            species = row["Final prediction"].split(", ")
-            found = False
-            for sp in species:
-                for native in selected_species:
-                    if sp.lower().find(native.lower()) != -1:
-                        found = True
-                        found_specie = native
-                        break
+    else:    
+        for _, row in df.iterrows():
+            if row["MIT_AST_label"] in MIT_classes_of_interest:
+                current_event = row["MIT_AST_label"]
+            else:
+                current_event = None
 
-                if found:
-                    plot_df.loc[len(plot_df)] = {"hour": row["datetime"].hour, "total_count": "total count", "species": found_specie, "call_type": None, "previous_event": previous_event}
-        previous_event = current_event
+            if row["Final prediction"] is not None:
+                species = row["Final prediction"].split(", ")
+                found = False
+                for sp in species:
+                    for native in selected_species:
+                        if sp.lower().find(native.lower()) != -1:
+                            found = True
+                            found_specie = native
+                            break
+
+                    if found:
+                        plot_df.loc[len(plot_df)] = {"hour": row["datetime"].hour, "total_count": "total count", "species": found_specie, "call_type": None, "event": current_event}
+        
+        plot_df.to_csv("plot_data.csv", index=False)
 
     return plot_df
 
@@ -65,7 +72,34 @@ def format_data(species):
 
 
 def bar_plot(plot_df):
-    grouped = plot_df.groupby(["hour", "previous_event"]).size().reset_index(name="total_count")
-    fig_bar = px.bar(grouped, x="hour", y="total_count", color="previous_event", title="Distribution of Events Over the Day")
-    
+    subset_df = plot_df[plot_df["event"]!=None]
+    grouped = subset_df.groupby(["hour", "event"]).size().reset_index(name="total_count")
+    fig_bar = px.bar(grouped, x="hour", y="total_count", color="event", title="Distribution of Events Over the Day")
+    fig_bar.update_layout(xaxis_title="Hour of the Day", yaxis_title="Event count", legend_title="Events")
+    fig_bar.update_xaxes(range=[0, 24], tickvals=list(range(0, 25, 1)))
+
     return fig_bar
+
+
+def flowchart_plot(plot_df):
+
+    subset_df = plot_df[plot_df["event"].notnull()]
+    subset_df["event"] = subset_df["event"].dropna()
+
+    #color = subset_df.call_type.map({"songs": "lightblue", "calls": "lightgreen"})
+
+    specie_dim = go.parcats.Dimension(values=subset_df["species"], label="Specie")
+    event_dim = go.parcats.Dimension(values=subset_df["event"], label="Event")
+    call_type_dim = go.parcats.Dimension(values=subset_df["call_type"], label="Call Type")
+
+    fig = go.Figure(data=[go.Parcats(dimensions=[specie_dim, event_dim, call_type_dim], 
+                                     line={"color": "lightblue"},
+                                     hoveron="color",
+                                     hoverinfo="all",
+                                     labelfont={'size': 18, 'family': 'Inter'},
+                                     tickfont={'size': 13, 'family': 'Inter'})
+                    ])
+    
+    fig.update_layout(title="Flowchart of Species, Events, and Call Types", font=dict(family="Inter", size=14))
+    
+    return fig
