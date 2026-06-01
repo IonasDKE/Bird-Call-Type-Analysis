@@ -90,12 +90,18 @@ app.layout = html.Div(style=CARD_STYLE, children=[
         ]),
 
         html.Div(style={"flex": 1}, children=[
-            dcc.Graph(id='ind_calls', style={"height": "200px"}),
+            dcc.Graph(id='ind_vocalisations', style={"height": "200px"}),
         ]),
 
         html.Div(style={"flex": 1}, children=[
-            dcc.Graph(id='ind_events', style={"height": "200px"}),
+            dcc.Graph(id='ind_songs', style={"height": "200px"}),
         ]),
+
+        html.Div(style={"flex": 1}, children=[
+            dcc.Graph(id='ind_calls', style={"height": "200px"}),
+        ]),
+
+        
     ]),
 
     html.Div(style=CARD_SPLIT_STYLE, children=[
@@ -142,16 +148,16 @@ def indicator_species(selected_species, plot_df=plot_df):
         title = {"text": "Number of Species", "font": {"size": 16}}
     )])
     fig.update_layout(
-        paper_bgcolor="lightblue",
-        plot_bgcolor="lightblue",
+        paper_bgcolor=px.colors.qualitative.Pastel[0],
+        plot_bgcolor=px.colors.qualitative.Pastel[0],
     )
 
     return fig
 
 @callback(
-    Output('ind_calls', 'figure'),
+    Output('ind_vocalisations', 'figure'),
     Input('species-dropdown', 'value'))
-def indicator_calls(selected_species, plot_df=plot_df):
+def indicator_vocalisations(selected_species, plot_df=plot_df):
     subset = plot_df[plot_df["species"].isin(selected_species)]
     fig = go.Figure(data=[go.Indicator(
         mode = "number",
@@ -159,24 +165,42 @@ def indicator_calls(selected_species, plot_df=plot_df):
         title = {"text": "Total Vocalisations", "font": {"size": 16}}
     )])
     fig.update_layout(
-        paper_bgcolor="lightgreen",
-        plot_bgcolor="lightgreen",
+        paper_bgcolor=px.colors.qualitative.Pastel[1],
+        plot_bgcolor=px.colors.qualitative.Pastel[1],
     )
     return fig
 
+
 @callback(
-    Output('ind_events', 'figure'),
+    Output('ind_calls', 'figure'),  
     Input('species-dropdown', 'value'))
-def indicator_events(selected_species, plot_df=plot_df):
-    subset = plot_df[plot_df["species"].isin(selected_species) & plot_df["event"].notnull()]
+def indicator_calls(selected_species, plot_df=plot_df):
+    subset = plot_df[plot_df["species"].isin(selected_species) & plot_df["call_type"].notnull()]
     fig = go.Figure(data=[go.Indicator(
         mode = "number",
-        value = subset["event"].nunique(),
-        title = {"text": "Unique Events", "font": {"size": 16}}
+        value = subset[subset["call_type"]=="calls"].shape[0],
+        title = {"text": "Number of Calls", "font": {"size": 16}}
     )])
     fig.update_layout(
-        paper_bgcolor="lightcoral",
-        plot_bgcolor="lightcoral",
+        paper_bgcolor=px.colors.qualitative.Pastel[2],
+        plot_bgcolor=px.colors.qualitative.Pastel[2],
+    )
+    return fig
+
+
+@callback(
+    Output('ind_songs', 'figure'),  
+    Input('species-dropdown', 'value'))
+def indicator_songs(selected_species, plot_df=plot_df):
+    subset = plot_df[plot_df["species"].isin(selected_species) & plot_df["call_type"].notnull()]
+    fig = go.Figure(data=[go.Indicator(
+        mode = "number",
+        value = subset[subset["call_type"]=="songs"].shape[0],
+        title = {"text": "Number of Songs", "font": {"size": 16}}
+    )])
+    fig.update_layout(
+        paper_bgcolor=px.colors.qualitative.Pastel[3],
+        plot_bgcolor=px.colors.qualitative.Pastel[3],
     )
     return fig
 
