@@ -76,7 +76,7 @@ def bar_plot(plot_df):
     grouped = subset_df.groupby(["hour", "event"]).size().reset_index(name="total_count")
     fig_bar = px.bar(grouped, x="hour", y="total_count", color="event", title="Distribution of Events Over the Day")
     fig_bar.update_layout(xaxis_title="Hour of the Day", yaxis_title="Event count", legend_title="Events")
-    fig_bar.update_xaxes(range=[0, 24], tickvals=list(range(0, 25, 1)))
+    fig_bar.update_xaxes(range=[0, 23], tickvals=list(range(0, 24, 1)))
 
     return fig_bar
 

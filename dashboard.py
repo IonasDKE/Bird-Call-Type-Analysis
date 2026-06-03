@@ -84,6 +84,9 @@ app.layout = html.Div(style={
 
 # App layout
 app.layout = html.Div(style=CARD_STYLE, children=[
+    html.H1("Bird Vocalisation Analysis Dashboard", style={"fontSize": "28px", "fontFamily": FONT, "color": COLORS["text"], "marginBottom": "12px"}),
+    html.P("Explore the vocalisation patterns of different bird species in the aviary. Use the dropdown to filter by species and see how vocalisation types and events are distributed throughout the day.", style={"fontSize": "20px", "fontFamily": FONT, "color": COLORS["muted"], "marginBottom": "20px"}),
+           
     html.Div(style={"display": "flex", "alignItems": "center", "gap": "40px", "marginBottom": "20px"}, children=[
         html.Div(style={"flex": 1}, children=[
             dcc.Graph(id='ind_species', style={"height": "200px"}),
@@ -126,14 +129,19 @@ app.layout = html.Div(style=CARD_STYLE, children=[
         ]),
     ]),
 
+    html.P("Analysis of vocalisation events and types across different species and time periods.", style={"fontSize": "20px", "fontFamily": FONT, "color": COLORS["muted"], "marginBottom": "20px"}),
     html.Div(style=CARD_SPLIT_STYLE, children=[
 
-        html.Div(style={"flex": "1"}, children=[
-            html.Label('Event distribution per species', style=LABEL_STYLE),
-            dcc.Graph(id='vocalisation-event-bar')
+        html.Div(style={"flex": "2"}, children=[
+            dcc.Graph(id='ind_events', style={"height": "200px"}),
+
+            html.Div(style=CARD_STYLE, children=[
+                html.Label('Event distribution per species', style=LABEL_STYLE),
+                dcc.Graph(id='vocalisation-event-bar')
+            ]),
         ]),
 
-        html.Div(style={"flex": "2"}, children=[
+        html.Div(style={"flex": "3"}, children=[
             html.Div(style=CARD_STYLE, children=[
                 html.Label('Distribution of Events Over the Day', style=LABEL_STYLE),
                 dcc.Graph(figure=bar_plot(plot_df)),
@@ -143,7 +151,33 @@ app.layout = html.Div(style=CARD_STYLE, children=[
                 dcc.Graph(figure=flowchart_plot(plot_df))
             ])
         ]),
-    ])
+    ]),
+
+    html.Div(style=CARD_STYLE, children=[
+        html.Div(style=CARD_SPLIT_STYLE, children=[
+            html.Div(style={"flex": "1"}, children=[
+                dcc.Dropdown(
+                    style=LABEL_STYLE,
+                    id='species-event-dropdown',
+                    options=[sp for sp in native_species],
+                    value=native_species[0],
+                    multi=False,
+                ),
+                dcc.Dropdown(
+                    style=LABEL_STYLE,
+                    id='event-dropdown',
+                    options=[ev for ev in plot_df["event"].dropna().unique()],
+                    value=plot_df["event"].dropna().unique()[0],
+                    multi=False,
+                ),
+            ]), 
+            html.Div(style={"flex": "2"}, children=[
+
+            ]),               
+        ]),
+
+        dcc.Graph(id='event-vocalisation-causal-graph'),
+    ]),
 ])
 
 @callback(
@@ -213,6 +247,22 @@ def indicator_songs(selected_species, plot_df=plot_df):
     return fig
 
 @callback(
+    Output('ind_events', 'figure'),
+    Input('species-dropdown', 'value'))
+def indicator_events(selected_species, plot_df=plot_df):
+    subset = plot_df[plot_df["species"].isin(selected_species) & plot_df["event"].notnull()]
+    fig = go.Figure(data=[go.Indicator(
+        mode = "number",
+        value = subset["event"].shape[0],
+        title = {"text": "Number of Identified Events", "font": {"size": 16}}
+    )])
+    fig.update_layout(
+        paper_bgcolor=px.colors.qualitative.Pastel[4],
+        plot_bgcolor=px.colors.qualitative.Pastel[4],
+    )
+    return fig
+
+@callback(
     Output('vocalisation-event-bar', 'figure'),
     Input('species-dropdown', 'value'))
 def vocalisation_event_bar(selected_species, plot_df=plot_df):
@@ -271,9 +321,27 @@ def vocalisation_bar(selected_species, plot_df=plot_df):
     fig_bar = px.bar(grouped, x="hour", y="total_count", color="species", title="Distribution of vocalisatoions per hour")
     fig_bar.update_layout(xaxis_title="Hour of the Day", yaxis_title="Total Vocalisations", legend_title="Species")
     #fig_bar.update_layout(plot_bgcolor=COLORS["card"], paper_bgcolor=COLORS["card"], font_color=COLORS["text"])
-    fig_bar.update_xaxes(range=[0, 24])
+    fig_bar.update_xaxes(range=[0, 23])
 
     return fig_bar
+
+@callback(
+    Output('event-vocalisation-causal-graph', 'figure'),
+    Input('species-event-dropdown', 'value'),
+    Input('event-dropdown', 'value'))
+def event_vocalisation_causal_graph(selected_species, selected_event, plot_df=plot_df):
+    subset_df = plot_df[plot_df["species"]==selected_species]
+    if subset_df.empty:
+        return go.Figure()
+
+    subset_df["selected event presence"] = subset_df["event"].apply(lambda x: "Yes" if x == selected_event else "No")
+    grouped = subset_df.groupby(["hour", "selected event presence"]).size().reset_index(name="total_count")
+
+    fig = px.bar(grouped, x="hour", y="total_count", color="selected event presence", barmode="group",
+                 title=f"Vocalisation Count of {selected_species} per Hour with respect to {selected_event} Event")
+    fig.update_layout(xaxis_title="Hour of the Day", yaxis_title="Total Vocalisations", legend_title=f"{selected_event} Event Presence")
+    fig.update_xaxes(range=[0, 23])
+    return fig
 
 
 # Run the app
