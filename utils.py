@@ -4,7 +4,70 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
+def update_aviary_data(selected_aviaries_path):
+    # Make sure the input is a list
+    if isinstance(selected_aviaries_path, str):
+        selected_aviaries_path = [selected_aviaries_path]
 
+    general_df = pd.read_csv("general_aviary_data.csv")
+
+    aviary_metadata = pd.DataFrame()
+    aviary_population_data = pd.DataFrame(columns=["species", "males", "females", "unknown", "total"])
+
+    for aviary in selected_aviaries_path:
+        # Extract individual information from the aviaries_obsolete data
+        if aviary not in general_df["Metadata_filename"].values:
+            print(f"Aviary {aviary} not found in general data. Skipping.")
+        
+        else:
+            subset = general_df[general_df["Metadata_filename"] == aviary]
+            native_species = subset["species"].iloc[0].split(",")
+            native_species = [format_data(s.strip()) for s in native_species]
+
+            gender_list = subset["individuals_genders (m.f.u)"].iloc[0].split(",")
+            gender_list = [format_data(g).split('.') for g in gender_list]
+
+            males = [g[0] for g in gender_list]
+            females = [g[1] for g in gender_list]
+            unknowns = [g[2] for g in gender_list]
+
+            population_df = pd.DataFrame({
+                "species": native_species,
+                "males": males,
+                "females": females,
+                "unknown": unknowns,
+                "total": [int(m) + int(f) + int(u) for m, f, u in zip(males, females, unknowns)]
+            })
+
+            aviary_population_data = pd.concat([aviary_population_data, population_df], ignore_index=True)
+
+        # Stack metadata from the different aviaries
+        file_path = f"metadata_aviaries/{aviary}"
+        if os.path.exists(file_path):
+            aviary_df = pd.read_excel(file_path)
+            aviary_metadata = pd.concat([aviary_metadata, aviary_df], ignore_index=True)
+        else:
+            print(f"File {file_path} not found.")
+
+    aviary_metadata = process_metadata(aviary_metadata)
+    plot_df = get_plot_data(aviary_metadata, aviary_population_data["species"].unique())
+
+    plot_df.to_pickle("cached_plot_df.pkl")
+    aviary_population_data.to_pickle("cached_aviary_population_data.pkl")
+
+
+def get_cached_data():
+    plot_df = pd.read_pickle("cached_plot_df.pkl")
+    aviary_population_data = pd.read_pickle("cached_aviary_population_data.pkl")
+    return plot_df, aviary_population_data
+
+
+def get_natives_species():
+    _, population_data = get_cached_data()
+    return population_data["species"].unique().tolist()
+
+# Preprocess the metadata, mainly reformat the fusion_model_prediction to remove the prediction label
+# Drop irrelevant columns and remove unwanted labels such as "NO PREDICTION (0.0000)"
 def process_metadata(df):
     df.drop(columns=["Unnamed: 0.1", "Unnamed: 0", "sessionId", "time", "th1", "th1_value", 'th2', 'th2_value', 'th3', 'th3_value', 'wudate', 'lon', 'lat'], inplace=True)
     df["fusion_model_prediction"] = df["fusion_model_prediction"].replace("NO PREDICTION (0.0000)", None)
@@ -32,51 +95,48 @@ def process_metadata(df):
 
             except Exception as error:
                 print(f"Error processing row {idx}: {error}")
-                print(subset)
-    
 
+    return df
+    
+# Filter to keep only relevant MIT AST classes and create a new dataframe storing all the information required for the visualisations
 def get_plot_data(df, selected_species):
     MIT_classes_of_interest = ["Crowd", "Civil defense siren", "Railroad car, train wagon", "Vehicle", "Motorcycle", "Thunderstorm", "Air horn, truck horn", "Engine starting", "Siren", "Medium engine (mid frequency)", "Thunder", "Train", "Car", "Vehicle horn, car horn, honking", "Roaring cats (lions, tigers)", "Roar", "Dog"]
-    plot_df = pd.DataFrame(columns = ["hour", "total_count", "species", "call_type", "event"])
+    plot_df = pd.DataFrame(columns = ["hour", "species", "call_type", "event"])
+ 
+    for _, row in df.iterrows():
+        if row["MIT_AST_label"] in MIT_classes_of_interest:
+            current_event = row["MIT_AST_label"]
+        else:
+            current_event = None
 
-    if os.path.exists("plot_data.csv"):
-        plot_df = pd.read_csv("plot_data.csv")
+        if row["Final prediction"] is not None:
+            species = row["Final prediction"].split(", ")
+            found = False
+            for sp in species:
+                for native in selected_species:
+                    if sp.lower().find(native.lower()) != -1:
+                        found = True
+                        found_specie = native
+                        break
 
-    else:    
-        for _, row in df.iterrows():
-            if row["MIT_AST_label"] in MIT_classes_of_interest:
-                current_event = row["MIT_AST_label"]
-            else:
-                current_event = None
-
-            if row["Final prediction"] is not None:
-                species = row["Final prediction"].split(", ")
-                found = False
-                for sp in species:
-                    for native in selected_species:
-                        if sp.lower().find(native.lower()) != -1:
-                            found = True
-                            found_specie = native
-                            break
-
-                    if found:
-                        plot_df.loc[len(plot_df)] = {"hour": row["datetime"].hour, "total_count": "total count", "species": found_specie, "call_type": None, "event": current_event}
-        
-        plot_df.to_csv("plot_data.csv", index=False)
-
+                if found:
+                    plot_df.loc[len(plot_df)] = {"hour": row["datetime"].hour, "species": found_specie, "wild specie": None, "call_type": None, "event": current_event}
+                else:
+                    plot_df.loc[len(plot_df)] = {"hour": row["datetime"].hour, "species": None, "wild specie": sp, "call_type": None, "event": current_event}
+       
     return plot_df
 
-
+# Used to reformat the species names
 def format_data(species):
         return species.replace("'", "").replace("[", "").replace("]", "").replace('"', "").strip().lower()
 
 
 def bar_plot(plot_df):
-    subset_df = plot_df[plot_df["event"]!=None]
+    subset_df = plot_df[plot_df["event"].notnull()]
     grouped = subset_df.groupby(["hour", "event"]).size().reset_index(name="total_count")
     fig_bar = px.bar(grouped, x="hour", y="total_count", color="event", title="Distribution of Events Over the Day")
     fig_bar.update_layout(xaxis_title="Hour of the Day", yaxis_title="Event count", legend_title="Events")
-    fig_bar.update_xaxes(range=[0, 23], tickvals=list(range(0, 24, 1)))
+    fig_bar.update_xaxes(range=[-1, 24], tickvals=list(range(0, 24, 1)))
 
     return fig_bar
 
@@ -96,10 +156,10 @@ def flowchart_plot(plot_df):
                                      line={"color": px.colors.qualitative.Plotly[0]},
                                      hoveron="color",
                                      hoverinfo="all",
-                                     labelfont={'size': 18, 'family': 'Inter'},
-                                     tickfont={'size': 13, 'family': 'Inter'})
+                                     labelfont={'size': 18, 'family': "'Inter', sans-serif"},
+                                     tickfont={'size': 13, 'family': "'Inter', sans-serif"})
                     ])
     
-    fig.update_layout(title="Flowchart of Species, Events, and Call Types", font=dict(family="Inter", size=14))
+    fig.update_layout(title="Flowchart of Species, Events, and Call Types")
     
     return fig
