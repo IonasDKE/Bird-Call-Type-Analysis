@@ -29,7 +29,7 @@ plot_df = get_plot_data(aviary_df, native_species)
 plot_df = None
 native_species = None
 
-update_aviary_data(["fl_zoo_eindhoven_20250308_meta.xlsx"])
+update_aviary_data(["Zoo Eindhoven, Large Aviary"])
 plot_df, population_data = get_cached_data()
 native_species = population_data["species"].unique().tolist()
 
@@ -83,7 +83,7 @@ app.layout = html.Div(style=CARD_STYLE, children=[
     html.H1("Bird Vocalisation Analysis Dashboard", style={"fontSize": "28px", "fontFamily": FONT, "color": COLORS["text"], "marginBottom": "12px"}),
     html.P("Explore the vocalisation patterns of different bird species in the aviary. Use the dropdown to filter by species and see how vocalisation types and events are distributed throughout the day.", style={"fontSize": "20px", "fontFamily": FONT, "color": COLORS["muted"], "marginBottom": "20px"}),
     
-    dcc.Dropdown(style=LABEL_STYLE, id='aviary-dropdown', options=[file for file in os.listdir("metadata_aviaries") if file.endswith(".xlsx")], value="fl_zoo_eindhoven_20250308_meta.xlsx", multi=True),
+    dcc.Dropdown(style=LABEL_STYLE, id='aviary-dropdown', options=[file.split('_')[0] for file in os.listdir("processed_data") if file.endswith(".csv")], value="Zoo Eindhoven, Large Aviary", multi=True),
     
     html.Div(style=CARD_SPLIT_STYLE, children=[
 
@@ -163,8 +163,8 @@ app.layout = html.Div(style=CARD_STYLE, children=[
                 dcc.Dropdown(
                     style=LABEL_STYLE,
                     id='species-event-dropdown',
-                    options=[sp for sp in native_species],
-                    value=native_species[0],
+                    options=[],
+                    value=[],
                     multi=False,
                 ),
                 dcc.Dropdown(
@@ -188,6 +188,8 @@ app.layout = html.Div(style=CARD_STYLE, children=[
     Output('aviary-dropdown', 'value'),
     Output('species-dropdown', 'options'),
     Output('species-dropdown', 'value'),
+    Output('species-event-dropdown', 'options'),
+    Output('species-event-dropdown', 'value'),
     Input('aviary-dropdown', 'value'))
 def update_aviary_dropdown(selected_aviaries):
     if not selected_aviaries:
@@ -195,15 +197,16 @@ def update_aviary_dropdown(selected_aviaries):
     
     update_aviary_data(selected_aviaries)
 
-    df, population_data = get_cached_data()
+    df, _ = get_cached_data()
     
     global plot_df
     plot_df = df
 
     global native_species
-    native_species = population_data["species"].unique().tolist()
+    native_species = get_natives_species()
 
-    return selected_aviaries, native_species, native_species
+    # Outputs are linked to the call back outputs, reason why why output the same thing mutltiple times
+    return selected_aviaries, native_species, native_species, native_species, native_species[0]
 
 
 @callback(

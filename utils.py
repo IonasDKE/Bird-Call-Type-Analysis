@@ -16,11 +16,11 @@ def update_aviary_data(selected_aviaries_path):
 
     for aviary in selected_aviaries_path:
         # Extract individual information from the aviaries_obsolete data
-        if aviary not in general_df["Metadata_filename"].values:
+        if aviary not in general_df["Aviary"].values:
             print(f"Aviary {aviary} not found in general data. Skipping.")
         
         else:
-            subset = general_df[general_df["Metadata_filename"] == aviary]
+            subset = general_df[general_df["Aviary"] == aviary]
             native_species = subset["species"].iloc[0].split(",")
             native_species = [format_data(s.strip()) for s in native_species]
 
@@ -42,23 +42,21 @@ def update_aviary_data(selected_aviaries_path):
             aviary_population_data = pd.concat([aviary_population_data, population_df], ignore_index=True)
 
         # Stack metadata from the different aviaries
-        file_path = f"metadata_aviaries/{aviary}"
+        file_path = f"processed_data/{aviary}_processed.csv"
         if os.path.exists(file_path):
-            aviary_df = pd.read_excel(file_path)
+            aviary_df = pd.read_csv(file_path)
             aviary_metadata = pd.concat([aviary_metadata, aviary_df], ignore_index=True)
         else:
             print(f"File {file_path} not found.")
 
-    aviary_metadata = process_metadata(aviary_metadata)
-    plot_df = get_plot_data(aviary_metadata, aviary_population_data["species"].unique())
-
-    plot_df.to_pickle("cached_plot_df.pkl")
+    aviary_metadata.to_pickle("cached_plot_df.pkl")
     aviary_population_data.to_pickle("cached_aviary_population_data.pkl")
 
 
 def get_cached_data():
     plot_df = pd.read_pickle("cached_plot_df.pkl")
     aviary_population_data = pd.read_pickle("cached_aviary_population_data.pkl")
+    
     return plot_df, aviary_population_data
 
 
