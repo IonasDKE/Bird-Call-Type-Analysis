@@ -4,6 +4,29 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
+
+def add_time_cols(df):
+    df = df.copy()
+    has_minute = 'minute' in df.columns and df['minute'].notna().any()
+    if has_minute:
+        df['half_hour'] = df['hour'] * 2 + df['minute'].fillna(0).astype(int) // 30
+    else:
+        df['half_hour'] = df['hour'] * 2
+
+    df['time_label'] = df['half_hour'].apply(lambda x: f"{x//2}:{'00' if x%2==0 else '30'}")
+    return df
+
+
+def apply_time_filter(df, hour_range):
+    df = add_time_cols(df)
+    return df[(df['half_hour'] >= hour_range[0]) & (df['half_hour'] <= hour_range[1])]
+
+# All 48 half-hour labels in correct order
+ALL_TIME_LABELS = [f"{h//2}:{'00' if h%2==0 else '30'}" for h in range(0, 48)]
+def ordered_labels(hour_range):
+    return [ALL_TIME_LABELS[i] for i in range(hour_range[0], hour_range[1] + 1)]
+
+
 def update_aviary_data(selected_aviaries_path):
     # Make sure the input is a list
     if isinstance(selected_aviaries_path, str):

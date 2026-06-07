@@ -72,15 +72,19 @@ LABEL_STYLE = {
     "gap": "8px",
 }
 
-# All 48 half-hour labels in correct order
-ALL_TIME_LABELS = [f"{h//2}:{'00' if h%2==0 else '30'}" for h in range(0, 48)]
-
 # App layout
 app.layout = html.Div(style=CARD_STYLE, children=[
     html.H1("Bird Vocalisation Analysis Dashboard", style={"fontSize": "28px", "fontFamily": FONT, "color": COLORS["text"], "marginBottom": "12px"}),
     html.P("Explore the vocalisation patterns of different bird species in the aviary. Use the dropdown to filter by species and see how vocalisation types and events are distributed throughout the day.", style={"fontSize": "20px", "fontFamily": FONT, "color": COLORS["muted"], "marginBottom": "20px"}),
     
     dcc.Dropdown(style=LABEL_STYLE, id='aviary-dropdown', options=[file.replace("_processed.csv","") for file in os.listdir("processed_data") if file.endswith(".csv")], value="Zoo Eindhoven, Large Aviary", multi=True),
+
+    html.Div(style=CARD_SPLIT_STYLE, children=[
+        html.Div(style={"flex": 1}, children=[dcc.Graph(id='ind_species', style={"height": "200px"})]),
+        html.Div(style={"flex": 1}, children=[dcc.Graph(id='ind_vocalisations', style={"height": "200px"})]),
+        html.Div(style={"flex": 1}, children=[dcc.Graph(id='ind_songs', style={"height": "200px"})]),
+        html.Div(style={"flex": 1}, children=[dcc.Graph(id='ind_calls', style={"height": "200px"})]),
+    ]),
 
     # ── Time slider ───────────────────────────────────────────────────────────
     html.Div(style=CARD_STYLE, children=[
@@ -95,34 +99,29 @@ app.layout = html.Div(style=CARD_STYLE, children=[
     ]),
 
     html.Div(style=CARD_SPLIT_STYLE, children=[
-        html.Div(style={"flex": 1}, children=[dcc.Graph(id='ind_species', style={"height": "200px"})]),
-        html.Div(style={"flex": 1}, children=[dcc.Graph(id='ind_vocalisations', style={"height": "200px"})]),
-        html.Div(style={"flex": 1}, children=[dcc.Graph(id='ind_songs', style={"height": "200px"})]),
-        html.Div(style={"flex": 1}, children=[dcc.Graph(id='ind_calls', style={"height": "200px"})]),
-    ]),
-
-    html.Div(style=CARD_SPLIT_STYLE, children=[
         html.Div(style={"flex": "1"}, children=[
             html.Label('Bird Species', style=LABEL_STYLE),
             dcc.Dropdown(style=LABEL_STYLE, id='species-dropdown', options=native_species, value=native_species, multi=True),
             html.Label('Aviary Population Table', style=LABEL_STYLE),
-            dcc.Graph(id='population-table')
+            dcc.Graph(id='population-table'),
+
+            html.Div(style=CARD_STYLE, children=[
+                html.Label('Distribution of Vocalisations per Species', style=LABEL_STYLE),
+                dcc.Graph(id='species-pie-chart')
+            ]),
         ]),
+
         html.Div(style={"flex": "1"}, children=[
             html.Div(style=CARD_STYLE, children=[
                 html.Label('Vocalisation per 30-min Interval', style=LABEL_STYLE),
                 dcc.Graph(id='vocalisation-bar')
             ]),
+
             html.Div(style=CARD_STYLE, children=[
                 html.Label('', style=LABEL_STYLE),
                 dcc.Graph(id='Vocalisation-nonnative')
             ]),
         ]),
-    ]),
-
-    html.Div(style=CARD_STYLE, children=[
-        html.Label('Distribution of Vocalisations per Species', style=LABEL_STYLE),
-        dcc.Graph(id='species-pie-chart')
     ]),
 
     html.P("Analysis of vocalisation events and types across different species and time periods.", style={"fontSize": "20px", "fontFamily": FONT, "color": COLORS["muted"], "marginBottom": "20px"}),
@@ -159,29 +158,6 @@ app.layout = html.Div(style=CARD_STYLE, children=[
         dcc.Graph(id='event-vocalisation-causal-graph'),
     ]),
 ])
-
-
-# Helpers
-
-def add_time_cols(df):
-    df = df.copy()
-    has_minute = 'minute' in df.columns and df['minute'].notna().any()
-    if has_minute:
-        df['half_hour'] = df['hour'] * 2 + df['minute'].fillna(0).astype(int) // 30
-    else:
-        df['half_hour'] = df['hour'] * 2
-    df['time_label'] = df['half_hour'].apply(lambda x: f"{x//2}:{'00' if x%2==0 else '30'}")
-    return df
-
-
-def apply_time_filter(df, hour_range):
-    df = add_time_cols(df)
-    return df[(df['half_hour'] >= hour_range[0]) & (df['half_hour'] <= hour_range[1])]
-
-
-def ordered_labels(hour_range):
-    return [ALL_TIME_LABELS[i] for i in range(hour_range[0], hour_range[1] + 1)]
-
 
 
 # Indicators and dropdown menus
