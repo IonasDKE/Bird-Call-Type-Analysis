@@ -16,23 +16,14 @@ import plotly.express as px
 from utils import *
 
 
-'''AVIARY = "Zoo Eindhoven, Large Aviary"
-general_df = pd.read_csv("general_aviary_data.csv")
-aviary_df = pd.read_excel("metadata_aviaries/fl_zoo_eindhoven_20250308_meta.xlsx")
-process_metadata(aviary_df)
-
-native_species=[format_data(sp.strip()) for sp in general_df[general_df['Aviary'] == AVIARY]['species'].iloc[0].split(",")]
-
-plot_df = get_plot_data(aviary_df, native_species)
-'''
-
+# Generating default data values 
 plot_df = None
 native_species = None
 
 update_aviary_data(["Zoo Eindhoven, Large Aviary"])
 plot_df, population_data = get_cached_data()
-native_species = population_data["species"].unique().tolist()
-
+unique_events = [e for e in plot_df["event"].dropna().unique().tolist() if e is not None]
+native_species = [s for s in population_data["species"].unique().tolist() if s is not None]
 
 app = Dash()
 
@@ -83,7 +74,7 @@ app.layout = html.Div(style=CARD_STYLE, children=[
     html.H1("Bird Vocalisation Analysis Dashboard", style={"fontSize": "28px", "fontFamily": FONT, "color": COLORS["text"], "marginBottom": "12px"}),
     html.P("Explore the vocalisation patterns of different bird species in the aviary. Use the dropdown to filter by species and see how vocalisation types and events are distributed throughout the day.", style={"fontSize": "20px", "fontFamily": FONT, "color": COLORS["muted"], "marginBottom": "20px"}),
     
-    dcc.Dropdown(style=LABEL_STYLE, id='aviary-dropdown', options=[file.split('_')[0] for file in os.listdir("processed_data") if file.endswith(".csv")], value="Zoo Eindhoven, Large Aviary", multi=True),
+    dcc.Dropdown(style=LABEL_STYLE, id='aviary-dropdown', options=[file.replace("_processed.csv","") for file in os.listdir("processed_data") if file.endswith(".csv")], value="Zoo Eindhoven, Large Aviary", multi=True),
     
     html.Div(style=CARD_SPLIT_STYLE, children=[
 
@@ -111,8 +102,8 @@ app.layout = html.Div(style=CARD_STYLE, children=[
             dcc.Dropdown(
                 style=LABEL_STYLE,
                 id='species-dropdown',
-                options=[],
-                value=[],
+                options=native_species,
+                value=native_species,
                 multi=True,
             ),
 
@@ -126,7 +117,7 @@ app.layout = html.Div(style=CARD_STYLE, children=[
                 dcc.Graph(id='vocalisation-bar')
             ]),
             html.Div(style=CARD_STYLE, children=[
-                html.Label('Heat map between native and non-native species to the aviary', style=LABEL_STYLE),
+                html.Label('', style=LABEL_STYLE),
                 dcc.Graph(id='Vocalisation-nonnative')
             ]),
 
@@ -137,10 +128,20 @@ app.layout = html.Div(style=CARD_STYLE, children=[
     html.Div(style=CARD_SPLIT_STYLE, children=[
 
         html.Div(style={"flex": "2"}, children=[
-            dcc.Graph(id='ind_events', style={"height": "200px"}),
+            html.Div(style=CARD_STYLE, children=[
+                dcc.Graph(id='ind_events', style={"height": "200px"}),
+            ]),
 
             html.Div(style=CARD_STYLE, children=[
-                html.Label('Event distribution per species', style=LABEL_STYLE),
+                html.Label('Events selection menu', style=LABEL_STYLE),
+                dcc.Dropdown(style=LABEL_STYLE,
+                    id='event-dropdown',
+                    options=unique_events,
+                    value=unique_events,
+                    multi=True,
+                ),
+
+                html.Label('Event distribution per species', style={**LABEL_STYLE, "marginTop": "48px"}),
                 dcc.Graph(id='vocalisation-event-bar')
             ]),
         ]),
@@ -163,13 +164,13 @@ app.layout = html.Div(style=CARD_STYLE, children=[
                 dcc.Dropdown(
                     style=LABEL_STYLE,
                     id='species-event-dropdown',
-                    options=[],
-                    value=[],
+                    options=native_species,
+                    value=native_species[0],
                     multi=False,
                 ),
                 dcc.Dropdown(
                     style=LABEL_STYLE,
-                    id='event-dropdown',
+                    id='single-event-dropdown',
                     options=[ev for ev in plot_df["event"].dropna().unique()],
                     value=plot_df["event"].dropna().unique()[0],
                     multi=False,
@@ -183,6 +184,11 @@ app.layout = html.Div(style=CARD_STYLE, children=[
         dcc.Graph(id='event-vocalisation-causal-graph'),
     ]),
 ])
+
+
+# ==============================
+#   Indicators and dropdown menues
+# ==============================
 
 @callback(
     Output('aviary-dropdown', 'value'),
@@ -205,6 +211,8 @@ def update_aviary_dropdown(selected_aviaries):
     global native_species
     native_species = get_natives_species()
 
+    unique_events = df['event'].unique().tolist()
+
     # Outputs are linked to the call back outputs, reason why why output the same thing mutltiple times
     return selected_aviaries, native_species, native_species, native_species, native_species[0]
 
@@ -212,8 +220,12 @@ def update_aviary_dropdown(selected_aviaries):
 @callback(
     Output('ind_species', 'figure'),
     Input('species-dropdown', 'value'),
-    Input('aviary-dropdown', 'value'))
+    Input('aviary-dropdown', 'value'),
+    prevent_initial_call=True)
 def indicator_species(selected_species, selected_aviaries):
+    if not selected_species or not selected_aviaries:
+        return go.Figure()
+    
     fig =  go.Figure(data=[go.Indicator(
         mode = "number",
         value = len(selected_species),
@@ -230,8 +242,12 @@ def indicator_species(selected_species, selected_aviaries):
 @callback(
     Output('ind_vocalisations', 'figure'),
     Input('species-dropdown', 'value'),
-    Input('aviary-dropdown', 'value'))
+    Input('aviary-dropdown', 'value'),
+    prevent_initial_call=True)
 def indicator_vocalisations(selected_species, selected_aviaries):
+    if not selected_species or not selected_aviaries:
+        return go.Figure()
+
     df, _ = get_cached_data()
     subset = df[df["species"].isin(selected_species)]
 
@@ -250,8 +266,12 @@ def indicator_vocalisations(selected_species, selected_aviaries):
 @callback(
     Output('ind_calls', 'figure'),  
     Input('species-dropdown', 'value'),
-    Input('aviary-dropdown', 'value'))
+    Input('aviary-dropdown', 'value'),
+    prevent_initial_call=True)
 def indicator_calls(selected_species, selected_aviaries):
+    if not selected_species or not selected_aviaries:
+        return go.Figure()
+    
     df, _ = get_cached_data()
     subset = df[df["species"].isin(selected_species) & df["call_type"].notnull()]
 
@@ -270,8 +290,12 @@ def indicator_calls(selected_species, selected_aviaries):
 @callback(
     Output('ind_songs', 'figure'),  
     Input('species-dropdown', 'value'),
-    Input('aviary-dropdown', 'value'))
+    Input('aviary-dropdown', 'value'),
+    prevent_initial_call=True)
 def indicator_songs(selected_species, selected_aviaries):
+    if not selected_species or not selected_aviaries:
+        return go.Figure()
+    
     df, _ = get_cached_data()
     subset = df[df["species"].isin(selected_species) & df["call_type"].notnull()]
 
@@ -289,11 +313,16 @@ def indicator_songs(selected_species, selected_aviaries):
 
 @callback(
     Output('ind_events', 'figure'),
+    Input('event-dropdown', 'value'),
     Input('species-dropdown', 'value'),
-    Input('aviary-dropdown', 'value'))
-def indicator_events(selected_species, selected_aviaries):
+    Input('aviary-dropdown', 'value'),
+    prevent_initial_call=True)
+def indicator_events(selected_events, selected_species, selected_aviaries):
+    if not selected_species or not selected_aviaries:
+        return go.Figure()
+    
     df, _ = get_cached_data()
-    subset = df[df["species"].isin(selected_species) & df["event"].notnull()]
+    subset = df[df["species"].isin(selected_species) & df["event"].isin(selected_events)]
 
     fig = go.Figure(data=[go.Indicator(
         mode = "number",
@@ -306,45 +335,19 @@ def indicator_events(selected_species, selected_aviaries):
     )
     return fig
 
-
-@callback(
-    Output('Vocalisation-nonnative', 'figure'),
-    Input('species-dropdown', 'value'),
-    Input('aviary-dropdown', 'value'))
-def vocalisation_nonnative(selected_species, selected_aviaries):
-    df, _ = get_cached_data()
-
-    fig = px.bar(df, x="species", color=df["species"].apply(lambda x: "Native" if x in selected_species else "Non-Native"), title="Vocalisation Count by Native vs Non-Native Species")
-    fig.update_layout(xaxis_title="Species", yaxis_title="Total Vocalisations", legend_title="Species Type")
-    fig.update_xaxes(tickangle=45)
-
-    return fig
-
-
-@callback(
-    Output('vocalisation-event-bar', 'figure'),
-    Input('species-dropdown', 'value'),
-    Input('aviary-dropdown', 'value'))
-def vocalisation_event_bar(selected_species, selected_aviaries):
-    df, _ = get_cached_data()
-    subset_df = df[df["species"].isin(selected_species) & df["event"].notnull()]
-
-    grouped = subset_df.groupby(["species", "event"]).size().reset_index(name="total_count")
-    grouped.sort_values(by="total_count", ascending=False, inplace=True)
-
-    fig_bar = px.bar(grouped, x="total_count", y="species", color="event", title="Distribution of Events per Species", orientation="h")
-    fig_bar.update_layout(xaxis_title="Total Vocalisations with Event", yaxis_title="Species", legend_title="Events")
-    fig_bar.update_xaxes(tickangle=45)
-    fig_bar.update_yaxes(categoryorder="total ascending")
-
-    return fig_bar
-
+# ==============================
+#   Species general plot 
+# ==============================
 
 @callback(
     Output('population-table', 'figure'),
     Input('species-dropdown', 'value'), 
-    Input('aviary-dropdown', 'value'))
+    Input('aviary-dropdown', 'value'),
+    prevent_initial_call=True)
 def create_gender_pop_table(selected_species, selected_aviaries):
+    if not selected_species or not selected_aviaries:
+        return go.Figure()
+    
     _, population_data = get_cached_data()
 
     plot_df = population_data[population_data["species"].isin(selected_species)]
@@ -362,46 +365,133 @@ def create_gender_pop_table(selected_species, selected_aviaries):
 @callback(
     Output('vocalisation-bar', 'figure'),
     Input('species-dropdown', 'value'),
-    Input('aviary-dropdown', 'value'))
-def vocalisation_bar(selected_species, selected_aviaries):
+    Input('aviary-dropdown', 'value'),
+    prevent_initial_call=True)
+def species_vocalisation_bar(selected_species, selected_aviaries):
+    if not selected_species or not selected_aviaries:
+        return go.Figure()
+
     df, _ = get_cached_data()
     subset_df = df[df["species"].isin(selected_species)]
 
     grouped = subset_df.groupby(["hour", "species"]).size().reset_index(name="total_count")
     fig_bar = px.bar(grouped, x="hour", y="total_count", color="species", title="Distribution of vocalisatoions per hour")
     fig_bar.update_layout(xaxis_title="Hour of the Day", yaxis_title="Total Vocalisations", legend_title="Species")
-    #fig_bar.update_layout(plot_bgcolor=COLORS["card"], paper_bgcolor=COLORS["card"], font_color=COLORS["text"])
-    fig_bar.update_xaxes(range=[-1, 24])
+    fig_bar.update_xaxes(range=[-1, 24], tickvals=list(range(0,24)))
 
     return fig_bar
 
+@callback(
+    Output('Vocalisation-nonnative', 'figure'),
+    Input('species-dropdown', 'value'),
+    Input('aviary-dropdown', 'value'),
+    prevent_initial_call=True)
+def vocalisation_nonnative(selected_species, selected_aviaries):
+    if not selected_species or not selected_aviaries:
+        return go.Figure()
+    
+    df, _ = get_cached_data()
+    native_species = get_natives_species()
+    df['Type'] = df['species'].apply(lambda x: 'Aviary bird' if x in native_species else 'Wild bird')
+
+    grouped = df.groupby(["hour", "Type"]).size().reset_index(name="count")
+
+    fig = px.bar(
+        grouped,
+        x="hour",
+        y="count",
+        color="Type",
+        barmode='group',
+        title="Comparision of vocalisation between wild and aviary birds",
+        labels={"hour": "Hour of Day", "count": "Vocalisations"}
+    )
+    fig.update_xaxes(range=[-1, 24], tickvals=list(range(0,24)))
+
+    return fig
+
+# ==============================
+#   Bird vocalisation based on events
+# ==============================
+
+@callback(
+    Output('vocalisation-event-bar', 'figure'),
+    Input('event-dropdown', 'value'),
+    Input('species-dropdown', 'value'),
+    Input('aviary-dropdown', 'value'),
+    prevent_initial_call=True)
+def vocalisation_event_bar(selected_events, selected_species, selected_aviaries):
+    if not selected_species or not selected_aviaries:
+        return go.Figure()
+    
+    df, _ = get_cached_data()
+    subset_df = df[
+        df["species"].isin(selected_species) & 
+        df['event'].isin(selected_events) &
+        df['event'].notna() &      
+        df['species'].notna()
+    ]
+
+    if subset_df.empty:
+        return go.Figure()
+
+    grouped = subset_df.groupby(["species", "event"]).size().reset_index(name="total_count")
+    grouped.sort_values(by="total_count", ascending=False, inplace=True)
+
+    fig_bar = px.bar(grouped, x="total_count", y="species", color="event", title="Distribution of Events per Species", orientation="h")
+    fig_bar.update_layout(xaxis_title="Total Vocalisations with Event", yaxis_title="Species", legend_title="Events")
+    fig_bar.update_xaxes(tickangle=45)
+    fig_bar.update_yaxes(categoryorder="total ascending")
+
+    return fig_bar
 
 @callback(
     Output('bar-plot-graph', 'figure'),
+    Input('event-dropdown', 'value'),
     Input('aviary-dropdown', 'value'),
-    Input('species-dropdown', 'value'))
-def update_bar_plot(selected_aviaries, selected_species):
+    Input('species-dropdown', 'value'),
+    prevent_initial_call=True)
+def update_event_bar_plot(seleceted_events, selected_aviaries, selected_species):
+    if not selected_species or not selected_aviaries or not selected_species:
+        return go.Figure()
+    
     df, _ = get_cached_data()
-    subset = df[df["species"].isin(selected_species)]
+    subset = df[df["species"].isin(selected_species) & df['event'].isin(seleceted_events)]
     return bar_plot(subset)
 
 
 @callback(
     Output('flowchart-graph', 'figure'),
+    Input('event-dropdown', 'value'),
     Input('aviary-dropdown', 'value'),
     Input('species-dropdown', 'value'))
-def update_flowchart(selected_aviaries, selected_species):
+def update_event_flowchart(selected_events, selected_aviaries, selected_species):
+    if not selected_species or not selected_aviaries:
+        return go.Figure()
+    
     df, _ = get_cached_data()
-    subset = df[df["species"].isin(selected_species)]
+    subset = df[
+        df["species"].isin(selected_species) & 
+        df['event'].isin(selected_events) &
+        df['event'].notna() &      
+        df['species'].notna()
+    ]
+
+    if subset.empty:
+        return go.Figure()
+    
     return flowchart_plot(subset)
 
 
 @callback(
     Output('event-vocalisation-causal-graph', 'figure'),
     Input('species-event-dropdown', 'value'),
-    Input('event-dropdown', 'value'), 
-    Input('aviary-dropdown', 'value'))
+    Input('single-event-dropdown', 'value'), 
+    Input('aviary-dropdown', 'value'),
+    prevent_initial_call=True)
 def event_vocalisation_causal_graph(selected_species, selected_event, selected_aviaries):
+    if not selected_species or not selected_aviaries or not selected_event:
+        return go.Figure()
+    
     df, _ = get_cached_data()
     subset_df = df[df["species"]==selected_species]
     if subset_df.empty:
@@ -412,8 +502,8 @@ def event_vocalisation_causal_graph(selected_species, selected_event, selected_a
 
     fig = px.bar(grouped, x="hour", y="total_count", color="selected event presence", barmode="group",
                  title=f"Vocalisation Count of {selected_species} per Hour with respect to {selected_event} Event")
-    fig.update_layout(xaxis_title="Hour of the Day", yaxis_title="Total Vocalisations", legend_title=f"{selected_event} Event Presence")
-    fig.update_xaxes(range=[-1, 24])
+    fig.update_layout(xaxis_title="Hour of the Day", yaxis_title="Total Vocalisations", legend_title=f"Presence of event: {selected_event}")
+    fig.update_xaxes(range=[-1, 24], tickvals=list(range(0,24)))
     return fig
 
 
