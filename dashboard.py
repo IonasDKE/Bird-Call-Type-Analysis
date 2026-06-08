@@ -47,7 +47,6 @@ CARD_STYLE = {
     "borderRadius": "12px",
     "padding": "20px 24px",
     "marginBottom": "20px",
-    "gap": "60px",
 }
 
 CARD_SPLIT_STYLE = {
@@ -69,112 +68,200 @@ LABEL_STYLE = {
     "marginBottom": "8px",
     "display": "block",
     "textTransform": "uppercase",
-    "gap": "8px",
 }
 
-app.layout = html.Div(style=CARD_STYLE, children=[
-    html.H1("Bird Vocalisation Analysis Dashboard", style={"fontSize": "28px", "fontFamily": FONT, "color": COLORS["text"], "marginBottom": "12px"}),
-    html.P("Explore the vocalisation patterns of different bird species in the aviary. Use the dropdown to filter by species and see how vocalisation types and events are distributed throughout the day.", style={"fontSize": "20px", "fontFamily": FONT, "color": COLORS["muted"], "marginBottom": "20px"}),
+SECTION_HEADER_STYLE = {
+    "fontFamily": FONT,
+    "fontSize": "18px",
+    "fontWeight": "700",
+    "color": COLORS["text"],
+    "marginBottom": "4px",
+    "marginTop": "8px",
+}
 
-    dcc.Dropdown(style=LABEL_STYLE, id='aviary-dropdown', options=[file.replace("_processed.csv","") for file in os.listdir("processed_data") if file.endswith(".csv")], value="Zoo Eindhoven, Large Aviary", multi=True),
+SECTION_SUB_STYLE = {
+    "fontFamily": FONT,
+    "fontSize": "13px",
+    "color": COLORS["muted"],
+    "marginBottom": "20px",
+}
 
-    html.Div(style=CARD_SPLIT_STYLE, children=[
-        html.Div(style={"flex": 1}, children=[dcc.Graph(id='ind_species', style={"height": "200px"})]),
-        html.Div(style={"flex": 1}, children=[dcc.Graph(id='ind_vocalisations', style={"height": "200px"})]),
-        html.Div(style={"flex": 1}, children=[dcc.Graph(id='ind_songs', style={"height": "200px"})]),
-        html.Div(style={"flex": 1}, children=[dcc.Graph(id='ind_calls', style={"height": "200px"})]),
-    ]),
+app.layout = html.Div(
+    style={"background": COLORS["bg"], "minHeight": "100vh", "padding": "24px 32px", "fontFamily": FONT},
+    children=[
 
-    # Time controls
-    html.Div(style=CARD_STYLE, children=[
-        html.Div(style={"display": "flex", "justifyContent": "space-between", "alignItems": "center", "marginBottom": "12px"}, children=[
-            html.Label('Time of Day', style=LABEL_STYLE),
-            dcc.RadioItems(
-                id='interval-selector',
-                options=[
-                    {'label': '15 min', 'value': 15},
-                    {'label': '30 min', 'value': 30},
-                    {'label': '1 hour', 'value': 60},
-                ],
-                value=30,
-                inline=True,
-                style={"color": COLORS["text"], "fontFamily": FONT, "fontSize": "13px", "gap": "16px", "display": "flex"}
+        # Header
+        html.H1("Bird Vocalisation Analysis Dashboard",
+                style={"fontSize": "28px", "color": COLORS["text"], "marginBottom": "6px"}),
+        html.P("Explore vocalisation patterns across species, time of day, and acoustic events.",
+               style={"fontSize": "15px", "color": COLORS["muted"], "marginBottom": "24px"}),
+
+        # Aviary selector
+        html.Div(style=CARD_STYLE, children=[
+            html.Label("Aviary", style=LABEL_STYLE),
+            dcc.Dropdown(
+                id='aviary-dropdown',
+                options=[file.replace("_processed.csv", "") for file in os.listdir("processed_data") if file.endswith(".csv")],
+                value="Zoo Eindhoven, Large Aviary",
+                multi=True,
+                style={"fontFamily": FONT},
             ),
         ]),
-        dcc.RangeSlider(
-            id='hour-slider',
-            min=0, max=47, step=1,
-            value=[0, 47],
-            marks={i: f"{i//2}:{'00' if i%2==0 else '30'}" for i in range(0, 48, 4)},
-            tooltip={"placement": "bottom", "always_visible": False}
-        ),
-    ]),
 
-    html.Div(style=CARD_SPLIT_STYLE, children=[
-        html.Div(style={"flex": "1"}, children=[
-            html.Label('Bird Species', style=LABEL_STYLE),
-            dcc.Dropdown(style=LABEL_STYLE, id='species-dropdown', options=native_species, value=native_species, multi=True),
-            html.Label('Aviary Population Table', style=LABEL_STYLE),
-            dcc.Graph(id='population-table'),
-            html.Div(style=CARD_STYLE, children=[
-                html.Label('Distribution of Vocalisations per Species', style=LABEL_STYLE),
-                dcc.Graph(id='species-pie-chart')
-            ]),
-        ]),
-        html.Div(style={"flex": "1"}, children=[
-            html.Div(style=CARD_STYLE, children=[
-                html.Label('Vocalisation over Time', style=LABEL_STYLE),
-                dcc.Graph(id='vocalisation-bar')
-            ]),
-            html.Div(style=CARD_STYLE, children=[
-                html.Label('Vocalisation Heatmap — Species × Time of Day', style=LABEL_STYLE),
-                dcc.Graph(id='vocalisation-heatmap')
-            ]),
-            html.Div(style=CARD_STYLE, children=[
-                html.Label('', style=LABEL_STYLE),
-                dcc.Graph(id='Vocalisation-nonnative')
-            ]),
-        ]),
-    ]),
-
-    html.P("Analysis of vocalisation events and types across different species and time periods.", style={"fontSize": "20px", "fontFamily": FONT, "color": COLORS["muted"], "marginBottom": "20px"}),
-    html.Div(style=CARD_SPLIT_STYLE, children=[
-        html.Div(style={"flex": "2"}, children=[
-            html.Div(style=CARD_STYLE, children=[dcc.Graph(id='ind_events', style={"height": "200px"})]),
-            html.Div(style=CARD_STYLE, children=[
-                html.Label('Events selection menu', style=LABEL_STYLE),
-                dcc.Dropdown(style=LABEL_STYLE, id='event-dropdown', options=unique_events, value=unique_events, multi=True),
-                html.Label('Event distribution per species', style={**LABEL_STYLE, "marginTop": "48px"}),
-                dcc.Graph(id='vocalisation-event-bar')
-            ]),
-        ]),
-        html.Div(style={"flex": "3"}, children=[
-            html.Div(style=CARD_STYLE, children=[
-                html.Label('Distribution of Events Over the Day', style=LABEL_STYLE),
-                dcc.Graph(id='bar-plot-graph'),
-            ]),
-            html.Div(style=CARD_STYLE, children=[
-                html.Label('Flowchart of Species, Events, and Call Types', style=LABEL_STYLE),
-                dcc.Graph(id='flowchart-graph')
-            ])
-        ]),
-    ]),
-
-    html.Div(style=CARD_STYLE, children=[
+        # Indicators
         html.Div(style=CARD_SPLIT_STYLE, children=[
-            html.Div(style={"flex": "1"}, children=[
-                dcc.Dropdown(style=LABEL_STYLE, id='species-event-dropdown', options=native_species, value=native_species[0], multi=False),
-                dcc.Dropdown(style=LABEL_STYLE, id='single-event-dropdown', options=[ev for ev in plot_df["event"].dropna().unique()], value=plot_df["event"].dropna().unique()[0], multi=False),
-            ]),
-            html.Div(style={"flex": "2"}, children=[]),
+            html.Div(style={"flex": 1}, children=[dcc.Graph(id='ind_species',      style={"height": "160px"})]),
+            html.Div(style={"flex": 1}, children=[dcc.Graph(id='ind_vocalisations', style={"height": "160px"})]),
+            html.Div(style={"flex": 1}, children=[dcc.Graph(id='ind_songs',         style={"height": "160px"})]),
+            html.Div(style={"flex": 1}, children=[dcc.Graph(id='ind_calls',         style={"height": "160px"})]),
         ]),
-        dcc.Graph(id='event-vocalisation-causal-graph'),
-    ]),
-])
 
+        # Time controls
+        html.Div(style=CARD_STYLE, children=[
+            html.Div(style={"display": "flex", "justifyContent": "space-between", "alignItems": "center", "marginBottom": "12px"}, children=[
+                html.Label("Time of Day Filter", style=LABEL_STYLE),
+                dcc.RadioItems(
+                    id='interval-selector',
+                    options=[
+                        {'label': '15 min', 'value': 15},
+                        {'label': '30 min', 'value': 30},
+                        {'label': '1 hour', 'value': 60},
+                    ],
+                    value=30,
+                    inline=True,
+                    labelStyle={"color": COLORS["text"], "fontFamily": FONT, "fontSize": "13px", "marginRight": "16px"},
+                    style={"display": "flex"},
+                ),
+            ]),
+            dcc.RangeSlider(
+                id='hour-slider',
+                min=0, max=47, step=1,
+                value=[0, 47],
+                marks={i: f"{i//2}:{'00' if i%2==0 else '30'}" for i in range(0, 48, 4)},
+                tooltip={"placement": "bottom", "always_visible": False},
+            ),
+        ]),
+
+        
+        # Species overview
+        html.H2("Species Overview", style=SECTION_HEADER_STYLE),
+        html.P("Distribution of vocalisations across species and time of day.", style=SECTION_SUB_STYLE),
+
+        # Species filter (full width, above section)
+        html.Div(style={**CARD_STYLE, "marginBottom": "12px"}, children=[
+            html.Label("Bird Species", style=LABEL_STYLE),
+            dcc.Dropdown(
+                id='species-dropdown',
+                options=native_species,
+                value=native_species,
+                multi=True,
+                style={"fontFamily": FONT},
+            ),
+        ]),
+
+        html.Div(style=CARD_SPLIT_STYLE, children=[
+            html.Div(style={"flex": "1", "minWidth": 0}, children=[
+                html.Label("Population", style=LABEL_STYLE),
+                dcc.Graph(id='population-table', style={"height": "320px"}),
+            ]),
+            html.Div(style={"flex": "1", "minWidth": 0}, children=[
+                html.Label("Vocalisation Share per Species", style=LABEL_STYLE),
+                dcc.Graph(id='species-pie-chart', style={"height": "320px"}),
+            ]),
+        ]),
+
+        # Heatmap
+        html.Div(style=CARD_STYLE, children=[
+            html.Label("Vocalisation Heatmap — Species × Time of Day", style=LABEL_STYLE),
+            dcc.Graph(id='vocalisation-heatmap', style={"height": "360px"}),
+        ]),
+
+        # Row: stacked bar | wild vs aviary
+        html.Div(style=CARD_SPLIT_STYLE, children=[
+            html.Div(style={"flex": "1", "minWidth": 0}, children=[
+                html.Label("Vocalisations over Time by Species", style=LABEL_STYLE),
+                dcc.Graph(id='vocalisation-bar', style={"height": "340px"}),
+            ]),
+            html.Div(style={"flex": "1", "minWidth": 0}, children=[
+                html.Label("Wild vs Aviary Bird Vocalisations", style=LABEL_STYLE),
+                dcc.Graph(id='Vocalisation-nonnative', style={"height": "340px"}),
+            ]),
+        ]),
+
+        
+        # Event analysis
+        html.H2("Acoustic Event Analysis", style=SECTION_HEADER_STYLE),
+        html.P("How identified sound events co-occur with bird vocalisations.", style=SECTION_SUB_STYLE),
+
+        # Event filter + indicator
+        html.Div(style=CARD_SPLIT_STYLE, children=[
+            html.Div(style={"flex": "2", "minWidth": 0}, children=[
+                html.Label("Events", style=LABEL_STYLE),
+                dcc.Dropdown(
+                    id='event-dropdown',
+                    options=unique_events,
+                    value=unique_events,
+                    multi=True,
+                    style={"fontFamily": FONT},
+                ),
+            ]),
+            html.Div(style={"flex": "1", "minWidth": 0}, children=[
+                dcc.Graph(id='ind_events', style={"height": "120px"}),
+            ]),
+        ]),
+
+        # Row: event distribution over time | event per species
+        html.Div(style=CARD_SPLIT_STYLE, children=[
+            html.Div(style={"flex": "3", "minWidth": 0}, children=[
+                html.Label("Event Distribution over Time", style=LABEL_STYLE),
+                dcc.Graph(id='bar-plot-graph', style={"height": "340px"}),
+            ]),
+            html.Div(style={"flex": "2", "minWidth": 0}, children=[
+                html.Label("Event Distribution per Species", style=LABEL_STYLE),
+                dcc.Graph(id='vocalisation-event-bar', style={"height": "340px"}),
+            ]),
+        ]),
+
+        # Flowchart
+        html.Div(style=CARD_STYLE, children=[
+            html.Label("Flowchart — Species → Event → Call Type", style=LABEL_STYLE),
+            dcc.Graph(id='flowchart-graph', style={"height": "420px"}),
+        ]),
+
+        # Per-species event drill-down
+        html.H2("Species × Event Drill-down", style=SECTION_HEADER_STYLE),
+        html.P("Select a species and an event to see how vocalisation rate changes with its presence.", style=SECTION_SUB_STYLE),
+
+        html.Div(style=CARD_STYLE, children=[
+            html.Div(style={"display": "flex", "gap": "16px", "marginBottom": "16px"}, children=[
+                html.Div(style={"flex": "1"}, children=[
+                    html.Label("Species", style=LABEL_STYLE),
+                    dcc.Dropdown(
+                        id='species-event-dropdown',
+                        options=native_species,
+                        value=native_species[0],
+                        multi=False,
+                        style={"fontFamily": FONT},
+                    ),
+                ]),
+                html.Div(style={"flex": "1"}, children=[
+                    html.Label("Event", style=LABEL_STYLE),
+                    dcc.Dropdown(
+                        id='single-event-dropdown',
+                        options=[ev for ev in plot_df["event"].dropna().unique()],
+                        value=plot_df["event"].dropna().unique()[0],
+                        multi=False,
+                        style={"fontFamily": FONT},
+                    ),
+                ]),
+                html.Div(style={"flex": "2"}),
+            ]),
+            dcc.Graph(id='event-vocalisation-causal-graph', style={"height": "380px"}),
+        ]),
+    ]
+)
 
 # Slider updates when interval changes
-
 @callback(
     Output('hour-slider', 'max'),
     Output('hour-slider', 'value'),
@@ -206,12 +293,11 @@ def update_aviary_dropdown(selected_aviaries):
 
 
 # Indicators
-
 @callback(Output('ind_species', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), prevent_initial_call=True)
 def indicator_species(selected_species, selected_aviaries):
     if not selected_species or not selected_aviaries:
         return go.Figure()
-    fig = go.Figure(data=[go.Indicator(mode="number", value=len(selected_species), title={"text": "Number of Species", "font": {"size": 16}})])
+    fig = go.Figure(data=[go.Indicator(mode="number", value=len(selected_species), number={"font": {"size": 40}}, title={"text": "Number of Species", "font": {"size": 16}})])
     fig.update_layout(paper_bgcolor=px.colors.qualitative.Pastel[0], plot_bgcolor=px.colors.qualitative.Pastel[0])
     return fig
 
@@ -223,7 +309,7 @@ def indicator_vocalisations(selected_species, selected_aviaries, hour_range, int
     df, _ = get_cached_data()
     df = apply_time_filter(df, hour_range, interval)
     subset = df[df["species"].isin(selected_species)]
-    fig = go.Figure(data=[go.Indicator(mode="number", value=subset.shape[0], title={"text": "Total Vocalisations", "font": {"size": 16}})])
+    fig = go.Figure(data=[go.Indicator(mode="number", value=subset.shape[0], number={"font": {"size": 40}}, title={"text": "Total Vocalisations", "font": {"size": 16}})])
     fig.update_layout(paper_bgcolor=px.colors.qualitative.Pastel[1], plot_bgcolor=px.colors.qualitative.Pastel[1])
     return fig
 
@@ -235,7 +321,7 @@ def indicator_calls(selected_species, selected_aviaries, hour_range, interval):
     df, _ = get_cached_data()
     df = apply_time_filter(df, hour_range, interval)
     subset = df[df["species"].isin(selected_species) & df["call_type"].notnull()]
-    fig = go.Figure(data=[go.Indicator(mode="number", value=subset[subset["call_type"]=="calls"].shape[0], title={"text": "Number of Calls", "font": {"size": 16}})])
+    fig = go.Figure(data=[go.Indicator(mode="number", value=subset[subset["call_type"]=="calls"].shape[0], number={"font": {"size": 40}}, title={"text": "Number of Calls", "font": {"size": 16}})])
     fig.update_layout(paper_bgcolor=px.colors.qualitative.Pastel[2], plot_bgcolor=px.colors.qualitative.Pastel[2])
     return fig
 
@@ -247,7 +333,7 @@ def indicator_songs(selected_species, selected_aviaries, hour_range, interval):
     df, _ = get_cached_data()
     df = apply_time_filter(df, hour_range, interval)
     subset = df[df["species"].isin(selected_species) & df["call_type"].notnull()]
-    fig = go.Figure(data=[go.Indicator(mode="number", value=subset[subset["call_type"]=="songs"].shape[0], title={"text": "Number of Songs", "font": {"size": 16}})])
+    fig = go.Figure(data=[go.Indicator(mode="number", value=subset[subset["call_type"]=="songs"].shape[0], number={"font": {"size": 40}}, title={"text": "Number of Songs", "font": {"size": 16}})])
     fig.update_layout(paper_bgcolor=px.colors.qualitative.Pastel[3], plot_bgcolor=px.colors.qualitative.Pastel[3])
     return fig
 
@@ -259,7 +345,7 @@ def indicator_events(selected_events, selected_species, selected_aviaries, hour_
     df, _ = get_cached_data()
     df = apply_time_filter(df, hour_range, interval)
     subset = df[df["species"].isin(selected_species) & df["event"].isin(selected_events)]
-    fig = go.Figure(data=[go.Indicator(mode="number", value=subset["event"].shape[0], title={"text": "Number of Identified Events", "font": {"size": 16}})])
+    fig = go.Figure(data=[go.Indicator(mode="number", value=subset["event"].shape[0], number={"font": {"size": 40}}, title={"text": "Number of Identified Events", "font": {"size": 16}})])
     fig.update_layout(paper_bgcolor=px.colors.qualitative.Pastel[4], plot_bgcolor=px.colors.qualitative.Pastel[4])
     return fig
 
@@ -401,6 +487,5 @@ def event_vocalisation_causal_graph(selected_species, selected_event, selected_a
     return fig
 
 
-# Run the app
 if __name__ == '__main__':
     app.run(debug=True)
