@@ -5,30 +5,57 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 
-def add_time_cols(df):
+def add_time_cols(df, interval=30):
     df = df.copy()
     has_minute = 'minute' in df.columns and df['minute'].notna().any()
-    if has_minute:
-        df['half_hour'] = df['hour'] * 2 + df['minute'].fillna(0).astype(int) // 30
-    else:
-        df['half_hour'] = df['hour'] * 2
-
-    df['time_label'] = df['half_hour'].apply(lambda x: f"{x//2}:{'00' if x%2==0 else '30'}")
+    if interval == 60:
+        df['time_slot'] = df['hour']
+        df['time_label'] = df['hour'].apply(lambda x: f"{x}:00")
+    elif interval == 30:
+        if has_minute:
+            df['time_slot'] = df['hour'] * 2 + df['minute'].fillna(0).astype(int) // 30
+        else:
+            df['time_slot'] = df['hour'] * 2
+        df['time_label'] = df['time_slot'].apply(lambda x: f"{x//2}:{'00' if x%2==0 else '30'}")
+    elif interval == 15:
+        if has_minute:
+            df['time_slot'] = df['hour'] * 4 + df['minute'].fillna(0).astype(int) // 15
+        else:
+            df['time_slot'] = df['hour'] * 4
+        df['time_label'] = df['time_slot'].apply(lambda x: f"{x//4}:{(x%4)*15:02d}")
     return df
 
 
-def apply_time_filter(df, hour_range):
-    df = add_time_cols(df)
-    return df[(df['half_hour'] >= hour_range[0]) & (df['half_hour'] <= hour_range[1])]
+def get_slider_config(interval):
+    """Returns (min, max, marks) for the RangeSlider based on interval."""
+    if interval == 60:
+        n = 24
+        marks = {i: f"{i}:00" for i in range(0, 24, 3)}
+    elif interval == 30:
+        n = 48
+        marks = {i: f"{i//2}:{'00' if i%2==0 else '30'}" for i in range(0, 48, 4)}
+    elif interval == 15:
+        n = 96
+        marks = {i: f"{i//4}:{(i%4)*15:02d}" for i in range(0, 96, 8)}
+    return n - 1, marks
 
-# All 48 half-hour labels in correct order
-ALL_TIME_LABELS = [f"{h//2}:{'00' if h%2==0 else '30'}" for h in range(0, 48)]
-def ordered_labels(hour_range):
-    return [ALL_TIME_LABELS[i] for i in range(hour_range[0], hour_range[1] + 1)]
+
+def apply_time_filter(df, hour_range, interval=30):
+    df = add_time_cols(df, interval)
+    return df[(df['time_slot'] >= hour_range[0]) & (df['time_slot'] <= hour_range[1])]
+
+
+def ordered_labels(hour_range, interval=30):
+    if interval == 60:
+        all_labels = [f"{h}:00" for h in range(0, 24)]
+    elif interval == 30:
+        all_labels = [f"{h//2}:{'00' if h%2==0 else '30'}" for h in range(0, 48)]
+    elif interval == 15:
+        all_labels = [f"{h//4}:{(h%4)*15:02d}" for h in range(0, 96)]
+    return [all_labels[i] for i in range(hour_range[0], hour_range[1] + 1)]
 
 
 def update_aviary_data(selected_aviaries_path):
-    # Make sure the input is a list
     if isinstance(selected_aviaries_path, str):
         selected_aviaries_path = [selected_aviaries_path]
 
@@ -38,10 +65,8 @@ def update_aviary_data(selected_aviaries_path):
     aviary_population_data = pd.DataFrame(columns=["species", "males", "females", "unknown", "total"])
 
     for aviary in selected_aviaries_path:
-        # Extract individual information from the aviaries_obsolete data
         if aviary not in general_df["Aviary"].values:
             print(f"Aviary {aviary} not found in general data. Skipping.")
-        
         else:
             subset = general_df[general_df["Aviary"] == aviary]
             native_species = subset["species"].iloc[0].split(",")
@@ -64,7 +89,6 @@ def update_aviary_data(selected_aviaries_path):
 
             aviary_population_data = pd.concat([aviary_population_data, population_df], ignore_index=True)
 
-        # Stack metadata from the different aviaries
         file_path = f"processed_data/{aviary}_processed.csv"
         if os.path.exists(file_path):
             aviary_df = pd.read_csv(file_path)
@@ -79,7 +103,6 @@ def update_aviary_data(selected_aviaries_path):
 def get_cached_data():
     plot_df = pd.read_pickle("cached_plot_df.pkl")
     aviary_population_data = pd.read_pickle("cached_aviary_population_data.pkl")
-    
     return plot_df, aviary_population_data
 
 
@@ -87,9 +110,9 @@ def get_natives_species():
     _, population_data = get_cached_data()
     return population_data["species"].unique().tolist()
 
-# Used to reformat the species names
+
 def format_data(species):
-        return species.replace("'", "").replace("[", "").replace("]", "").replace('"', "").strip().lower()
+    return species.replace("'", "").replace("[", "").replace("]", "").replace('"', "").strip().lower()
 
 
 def bar_plot(plot_df):
@@ -98,29 +121,22 @@ def bar_plot(plot_df):
     fig_bar = px.bar(grouped, x="hour", y="total_count", color="event", title="Distribution of Events Over the Day")
     fig_bar.update_layout(xaxis_title="Hour of the Day", yaxis_title="Event count", legend_title="Events")
     fig_bar.update_xaxes(range=[-1, 24], tickvals=list(range(0, 24)))
-
     return fig_bar
 
 
 def flowchart_plot(plot_df):
-
     subset_df = plot_df[plot_df["event"].notnull()]
     subset_df["event"] = subset_df["event"].dropna()
-
-    #color = subset_df.call_type.map({"songs": "lightblue", "calls": "lightgreen"})
 
     specie_dim = go.parcats.Dimension(values=subset_df["species"], label="Specie")
     event_dim = go.parcats.Dimension(values=subset_df["event"], label="Event")
     call_type_dim = go.parcats.Dimension(values=subset_df["call_type"], label="Vocalisation Type")
 
-    fig = go.Figure(data=[go.Parcats(dimensions=[specie_dim, event_dim, call_type_dim], 
+    fig = go.Figure(data=[go.Parcats(dimensions=[specie_dim, event_dim, call_type_dim],
                                      line={"color": px.colors.qualitative.Plotly[0]},
                                      hoveron="color",
                                      hoverinfo="all",
                                      labelfont={'size': 18, 'family': "'Inter', sans-serif"},
-                                     tickfont={'size': 13, 'family': "'Inter', sans-serif"})
-                    ])
-    
+                                     tickfont={'size': 13, 'family': "'Inter', sans-serif"})])
     fig.update_layout(title="Flowchart of Species, Events, and Call Types")
-    
     return fig

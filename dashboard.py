@@ -19,7 +19,7 @@ import plotly.io as pio
 pio.templates.default = "plotly"
 
 
-# Generating default data values 
+# Generating default data values
 plot_df = None
 native_species = None
 
@@ -72,11 +72,10 @@ LABEL_STYLE = {
     "gap": "8px",
 }
 
-# App layout
 app.layout = html.Div(style=CARD_STYLE, children=[
     html.H1("Bird Vocalisation Analysis Dashboard", style={"fontSize": "28px", "fontFamily": FONT, "color": COLORS["text"], "marginBottom": "12px"}),
     html.P("Explore the vocalisation patterns of different bird species in the aviary. Use the dropdown to filter by species and see how vocalisation types and events are distributed throughout the day.", style={"fontSize": "20px", "fontFamily": FONT, "color": COLORS["muted"], "marginBottom": "20px"}),
-    
+
     dcc.Dropdown(style=LABEL_STYLE, id='aviary-dropdown', options=[file.replace("_processed.csv","") for file in os.listdir("processed_data") if file.endswith(".csv")], value="Zoo Eindhoven, Large Aviary", multi=True),
 
     html.Div(style=CARD_SPLIT_STYLE, children=[
@@ -86,9 +85,22 @@ app.layout = html.Div(style=CARD_STYLE, children=[
         html.Div(style={"flex": 1}, children=[dcc.Graph(id='ind_calls', style={"height": "200px"})]),
     ]),
 
-    # ── Time slider ───────────────────────────────────────────────────────────
+    # Time controls
     html.Div(style=CARD_STYLE, children=[
-        html.Label('Time of Day (30-min intervals)', style=LABEL_STYLE),
+        html.Div(style={"display": "flex", "justifyContent": "space-between", "alignItems": "center", "marginBottom": "12px"}, children=[
+            html.Label('Time of Day', style=LABEL_STYLE),
+            dcc.RadioItems(
+                id='interval-selector',
+                options=[
+                    {'label': '15 min', 'value': 15},
+                    {'label': '30 min', 'value': 30},
+                    {'label': '1 hour', 'value': 60},
+                ],
+                value=30,
+                inline=True,
+                style={"color": COLORS["text"], "fontFamily": FONT, "fontSize": "13px", "gap": "16px", "display": "flex"}
+            ),
+        ]),
         dcc.RangeSlider(
             id='hour-slider',
             min=0, max=47, step=1,
@@ -104,19 +116,16 @@ app.layout = html.Div(style=CARD_STYLE, children=[
             dcc.Dropdown(style=LABEL_STYLE, id='species-dropdown', options=native_species, value=native_species, multi=True),
             html.Label('Aviary Population Table', style=LABEL_STYLE),
             dcc.Graph(id='population-table'),
-
             html.Div(style=CARD_STYLE, children=[
                 html.Label('Distribution of Vocalisations per Species', style=LABEL_STYLE),
                 dcc.Graph(id='species-pie-chart')
             ]),
         ]),
-
         html.Div(style={"flex": "1"}, children=[
             html.Div(style=CARD_STYLE, children=[
-                html.Label('Vocalisation per 30-min Interval', style=LABEL_STYLE),
+                html.Label('Vocalisation over Time', style=LABEL_STYLE),
                 dcc.Graph(id='vocalisation-bar')
             ]),
-
             html.Div(style=CARD_STYLE, children=[
                 html.Label('', style=LABEL_STYLE),
                 dcc.Graph(id='Vocalisation-nonnative')
@@ -160,8 +169,19 @@ app.layout = html.Div(style=CARD_STYLE, children=[
 ])
 
 
-# Indicators and dropdown menus
+# Slider updates when interval changes
 
+@callback(
+    Output('hour-slider', 'max'),
+    Output('hour-slider', 'value'),
+    Output('hour-slider', 'marks'),
+    Input('interval-selector', 'value'))
+def update_slider(interval):
+    max_val, marks = get_slider_config(interval)
+    return max_val, [0, max_val], marks
+
+
+# Aviary dropdown
 @callback(
     Output('aviary-dropdown', 'value'),
     Output('species-dropdown', 'options'),
@@ -181,6 +201,8 @@ def update_aviary_dropdown(selected_aviaries):
     return selected_aviaries, native_species, native_species, native_species, native_species[0]
 
 
+# Indicators
+
 @callback(Output('ind_species', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), prevent_initial_call=True)
 def indicator_species(selected_species, selected_aviaries):
     if not selected_species or not selected_aviaries:
@@ -190,55 +212,55 @@ def indicator_species(selected_species, selected_aviaries):
     return fig
 
 
-@callback(Output('ind_vocalisations', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), prevent_initial_call=True)
-def indicator_vocalisations(selected_species, selected_aviaries, hour_range):
+@callback(Output('ind_vocalisations', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), Input('interval-selector', 'value'), prevent_initial_call=True)
+def indicator_vocalisations(selected_species, selected_aviaries, hour_range, interval):
     if not selected_species or not selected_aviaries:
         return go.Figure()
     df, _ = get_cached_data()
-    df = apply_time_filter(df, hour_range)
+    df = apply_time_filter(df, hour_range, interval)
     subset = df[df["species"].isin(selected_species)]
     fig = go.Figure(data=[go.Indicator(mode="number", value=subset.shape[0], title={"text": "Total Vocalisations", "font": {"size": 16}})])
     fig.update_layout(paper_bgcolor=px.colors.qualitative.Pastel[1], plot_bgcolor=px.colors.qualitative.Pastel[1])
     return fig
 
 
-@callback(Output('ind_calls', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), prevent_initial_call=True)
-def indicator_calls(selected_species, selected_aviaries, hour_range):
+@callback(Output('ind_calls', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), Input('interval-selector', 'value'), prevent_initial_call=True)
+def indicator_calls(selected_species, selected_aviaries, hour_range, interval):
     if not selected_species or not selected_aviaries:
         return go.Figure()
     df, _ = get_cached_data()
-    df = apply_time_filter(df, hour_range)
+    df = apply_time_filter(df, hour_range, interval)
     subset = df[df["species"].isin(selected_species) & df["call_type"].notnull()]
     fig = go.Figure(data=[go.Indicator(mode="number", value=subset[subset["call_type"]=="calls"].shape[0], title={"text": "Number of Calls", "font": {"size": 16}})])
     fig.update_layout(paper_bgcolor=px.colors.qualitative.Pastel[2], plot_bgcolor=px.colors.qualitative.Pastel[2])
     return fig
 
 
-@callback(Output('ind_songs', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), prevent_initial_call=True)
-def indicator_songs(selected_species, selected_aviaries, hour_range):
+@callback(Output('ind_songs', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), Input('interval-selector', 'value'), prevent_initial_call=True)
+def indicator_songs(selected_species, selected_aviaries, hour_range, interval):
     if not selected_species or not selected_aviaries:
         return go.Figure()
     df, _ = get_cached_data()
-    df = apply_time_filter(df, hour_range)
+    df = apply_time_filter(df, hour_range, interval)
     subset = df[df["species"].isin(selected_species) & df["call_type"].notnull()]
     fig = go.Figure(data=[go.Indicator(mode="number", value=subset[subset["call_type"]=="songs"].shape[0], title={"text": "Number of Songs", "font": {"size": 16}})])
     fig.update_layout(paper_bgcolor=px.colors.qualitative.Pastel[3], plot_bgcolor=px.colors.qualitative.Pastel[3])
     return fig
 
 
-@callback(Output('ind_events', 'figure'), Input('event-dropdown', 'value'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), prevent_initial_call=True)
-def indicator_events(selected_events, selected_species, selected_aviaries, hour_range):
+@callback(Output('ind_events', 'figure'), Input('event-dropdown', 'value'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), Input('interval-selector', 'value'), prevent_initial_call=True)
+def indicator_events(selected_events, selected_species, selected_aviaries, hour_range, interval):
     if not selected_species or not selected_aviaries:
         return go.Figure()
     df, _ = get_cached_data()
-    df = apply_time_filter(df, hour_range)
+    df = apply_time_filter(df, hour_range, interval)
     subset = df[df["species"].isin(selected_species) & df["event"].isin(selected_events)]
     fig = go.Figure(data=[go.Indicator(mode="number", value=subset["event"].shape[0], title={"text": "Number of Identified Events", "font": {"size": 16}})])
     fig.update_layout(paper_bgcolor=px.colors.qualitative.Pastel[4], plot_bgcolor=px.colors.qualitative.Pastel[4])
     return fig
 
 
-# Species general plots
+# Species plots
 
 @callback(Output('population-table', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), prevent_initial_call=True)
 def create_gender_pop_table(selected_species, selected_aviaries):
@@ -254,42 +276,43 @@ def create_gender_pop_table(selected_species, selected_aviaries):
     return table_fig
 
 
-@callback(Output('vocalisation-bar', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), prevent_initial_call=True)
-def species_vocalisation_bar(selected_species, selected_aviaries, hour_range):
+@callback(Output('vocalisation-bar', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), Input('interval-selector', 'value'), prevent_initial_call=True)
+def species_vocalisation_bar(selected_species, selected_aviaries, hour_range, interval):
     if not selected_species or not selected_aviaries:
         return go.Figure()
     df, _ = get_cached_data()
-    df = apply_time_filter(df, hour_range)
+    df = apply_time_filter(df, hour_range, interval)
     subset_df = df[df["species"].isin(selected_species)]
-    grouped = subset_df.groupby(["half_hour", "time_label", "species"]).size().reset_index(name="total_count").sort_values("half_hour")
-    fig = px.bar(grouped, x="time_label", y="total_count", color="species", title="Distribution of Vocalisations per 30-min Interval")
+    grouped = subset_df.groupby(["time_slot", "time_label", "species"]).size().reset_index(name="total_count").sort_values("time_slot")
+    interval_label = {15: "15-min", 30: "30-min", 60: "Hour"}[interval]
+    fig = px.bar(grouped, x="time_label", y="total_count", color="species", title=f"Distribution of Vocalisations per {interval_label} Interval")
     fig.update_layout(xaxis_title="Time of Day", yaxis_title="Total Vocalisations", legend_title="Species")
-    fig.update_xaxes(categoryorder='array', categoryarray=ordered_labels(hour_range))
+    fig.update_xaxes(categoryorder='array', categoryarray=ordered_labels(hour_range, interval))
     return fig
 
 
-@callback(Output('Vocalisation-nonnative', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), prevent_initial_call=True)
-def vocalisation_nonnative(selected_species, selected_aviaries, hour_range):
+@callback(Output('Vocalisation-nonnative', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), Input('interval-selector', 'value'), prevent_initial_call=True)
+def vocalisation_nonnative(selected_species, selected_aviaries, hour_range, interval):
     if not selected_species or not selected_aviaries:
         return go.Figure()
     df, _ = get_cached_data()
-    df = apply_time_filter(df, hour_range)
+    df = apply_time_filter(df, hour_range, interval)
     native_sp = get_natives_species()
     df['Type'] = df['species'].apply(lambda x: 'Aviary bird' if x in native_sp else 'Wild bird')
-    grouped = df.groupby(["half_hour", "time_label", "Type"]).size().reset_index(name="count").sort_values("half_hour")
+    grouped = df.groupby(["time_slot", "time_label", "Type"]).size().reset_index(name="count").sort_values("time_slot")
     fig = px.bar(grouped, x="time_label", y="count", color="Type", barmode='group',
                  title="Comparison of vocalisation between wild and aviary birds",
                  labels={"time_label": "Time of Day", "count": "Vocalisations"})
-    fig.update_xaxes(categoryorder='array', categoryarray=ordered_labels(hour_range))
+    fig.update_xaxes(categoryorder='array', categoryarray=ordered_labels(hour_range, interval))
     return fig
 
 
-@callback(Output('species-pie-chart', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), prevent_initial_call=True)
-def species_pie_chart(selected_species, selected_aviaries, hour_range):
+@callback(Output('species-pie-chart', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), Input('interval-selector', 'value'), prevent_initial_call=True)
+def species_pie_chart(selected_species, selected_aviaries, hour_range, interval):
     if not selected_species or not selected_aviaries:
         return go.Figure()
     df, _ = get_cached_data()
-    df = apply_time_filter(df, hour_range)
+    df = apply_time_filter(df, hour_range, interval)
     subset_df = df[df["species"].isin(selected_species) & df["species"].notna()]
     counts = subset_df["species"].value_counts().reset_index()
     counts.columns = ["species", "count"]
@@ -299,15 +322,14 @@ def species_pie_chart(selected_species, selected_aviaries, hour_range):
     return fig
 
 
+# Event plots
 
-# Bird vocalisation based on events
-
-@callback(Output('vocalisation-event-bar', 'figure'), Input('event-dropdown', 'value'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), prevent_initial_call=True)
-def vocalisation_event_bar(selected_events, selected_species, selected_aviaries, hour_range):
+@callback(Output('vocalisation-event-bar', 'figure'), Input('event-dropdown', 'value'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), Input('interval-selector', 'value'), prevent_initial_call=True)
+def vocalisation_event_bar(selected_events, selected_species, selected_aviaries, hour_range, interval):
     if not selected_species or not selected_aviaries:
         return go.Figure()
     df, _ = get_cached_data()
-    df = apply_time_filter(df, hour_range)
+    df = apply_time_filter(df, hour_range, interval)
     subset_df = df[df["species"].isin(selected_species) & df['event'].isin(selected_events) & df['event'].notna() & df['species'].notna()]
     if subset_df.empty:
         return go.Figure()
@@ -320,19 +342,20 @@ def vocalisation_event_bar(selected_events, selected_species, selected_aviaries,
     return fig_bar
 
 
-@callback(Output('bar-plot-graph', 'figure'), Input('event-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('species-dropdown', 'value'), Input('hour-slider', 'value'), prevent_initial_call=True)
-def update_event_bar_plot(selected_events, selected_aviaries, selected_species, hour_range):
+@callback(Output('bar-plot-graph', 'figure'), Input('event-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('species-dropdown', 'value'), Input('hour-slider', 'value'), Input('interval-selector', 'value'), prevent_initial_call=True)
+def update_event_bar_plot(selected_events, selected_aviaries, selected_species, hour_range, interval):
     if not selected_species or not selected_aviaries or not selected_events:
         return go.Figure()
     df, _ = get_cached_data()
-    df = apply_time_filter(df, hour_range)
+    df = apply_time_filter(df, hour_range, interval)
     subset = df[df["species"].isin(selected_species) & df['event'].isin(selected_events) & df['event'].notna()]
     if subset.empty:
         return go.Figure()
-    grouped = subset.groupby(["half_hour", "time_label", "event"]).size().reset_index(name="total_count").sort_values("half_hour")
-    fig = px.bar(grouped, x="time_label", y="total_count", color="event", title="Distribution of Events per 30-min Interval")
+    grouped = subset.groupby(["time_slot", "time_label", "event"]).size().reset_index(name="total_count").sort_values("time_slot")
+    interval_label = {15: "15-min", 30: "30-min", 60: "Hour"}[interval]
+    fig = px.bar(grouped, x="time_label", y="total_count", color="event", title=f"Distribution of Events per {interval_label} Interval")
     fig.update_layout(xaxis_title="Time of Day", yaxis_title="Event count", legend_title="Events")
-    fig.update_xaxes(categoryorder='array', categoryarray=ordered_labels(hour_range))
+    fig.update_xaxes(categoryorder='array', categoryarray=ordered_labels(hour_range, interval))
     return fig
 
 
@@ -347,21 +370,22 @@ def update_event_flowchart(selected_events, selected_aviaries, selected_species)
     return flowchart_plot(subset)
 
 
-@callback(Output('event-vocalisation-causal-graph', 'figure'), Input('species-event-dropdown', 'value'), Input('single-event-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), prevent_initial_call=True)
-def event_vocalisation_causal_graph(selected_species, selected_event, selected_aviaries, hour_range):
+@callback(Output('event-vocalisation-causal-graph', 'figure'), Input('species-event-dropdown', 'value'), Input('single-event-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), Input('interval-selector', 'value'), prevent_initial_call=True)
+def event_vocalisation_causal_graph(selected_species, selected_event, selected_aviaries, hour_range, interval):
     if not selected_species or not selected_aviaries or not selected_event:
         return go.Figure()
     df, _ = get_cached_data()
-    df = apply_time_filter(df, hour_range)
+    df = apply_time_filter(df, hour_range, interval)
     subset_df = df[df["species"] == selected_species].copy()
     if subset_df.empty:
         return go.Figure()
     subset_df["selected event presence"] = subset_df["event"].apply(lambda x: "Yes" if x == selected_event else "No")
-    grouped = subset_df.groupby(["half_hour", "time_label", "selected event presence"]).size().reset_index(name="total_count").sort_values("half_hour")
+    grouped = subset_df.groupby(["time_slot", "time_label", "selected event presence"]).size().reset_index(name="total_count").sort_values("time_slot")
+    interval_label = {15: "15-min", 30: "30-min", 60: "Hour"}[interval]
     fig = px.bar(grouped, x="time_label", y="total_count", color="selected event presence", barmode="group",
-                 title=f"Vocalisation Count of {selected_species} per 30-min Interval with respect to {selected_event} Event")
+                 title=f"Vocalisation Count of {selected_species} per {interval_label} Interval with respect to {selected_event} Event")
     fig.update_layout(xaxis_title="Time of Day", yaxis_title="Total Vocalisations", legend_title=f"Presence of event: {selected_event}")
-    fig.update_xaxes(categoryorder='array', categoryarray=ordered_labels(hour_range))
+    fig.update_xaxes(categoryorder='array', categoryarray=ordered_labels(hour_range, interval))
     return fig
 
 
