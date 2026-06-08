@@ -124,6 +124,45 @@ def bar_plot(plot_df):
     return fig_bar
 
 
+def heatmap_plot(df, selected_species, hour_range, interval):
+    df = apply_time_filter(df, hour_range, interval)
+    subset = df[df["species"].isin(selected_species) & df["species"].notna()]
+
+    if subset.empty:
+        return go.Figure()
+
+    grouped = subset.groupby(["species", "time_label", "time_slot"]).size().reset_index(name="count")
+
+    # Build a complete grid so missing slots show as 0 rather than blank
+    all_labels = ordered_labels(hour_range, interval)
+    species_list = sorted(subset["species"].unique())
+    full_index = pd.MultiIndex.from_product([species_list, all_labels], names=["species", "time_label"])
+    grouped = grouped.set_index(["species", "time_label"]).reindex(full_index, fill_value=0).reset_index()
+
+    pivot = grouped.pivot(index="species", columns="time_label", values="count")
+    pivot = pivot[all_labels]  # keep columns in time order
+
+    fig = go.Figure(data=go.Heatmap(
+        z=pivot.values,
+        x=pivot.columns.tolist(),
+        y=pivot.index.tolist(),
+        colorscale="YlOrRd",
+        hoverongaps=False,
+        hovertemplate="Species: %{y}<br>Time: %{x}<br>Vocalisations: %{z}<extra></extra>",
+        colorbar=dict(title="Count"),
+    ))
+
+    interval_label = {15: "15-min", 30: "30-min", 60: "Hour"}[interval]
+    fig.update_layout(
+        title=f"Vocalisation Heatmap — Species × Time ({interval_label} intervals)",
+        xaxis_title="Time of Day",
+        yaxis_title="Species",
+        xaxis=dict(tickangle=-45),
+        margin=dict(l=160),
+    )
+    return fig
+
+
 def flowchart_plot(plot_df):
     subset_df = plot_df[plot_df["event"].notnull()]
     subset_df["event"] = subset_df["event"].dropna()

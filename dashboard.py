@@ -127,6 +127,10 @@ app.layout = html.Div(style=CARD_STYLE, children=[
                 dcc.Graph(id='vocalisation-bar')
             ]),
             html.Div(style=CARD_STYLE, children=[
+                html.Label('Vocalisation Heatmap — Species × Time of Day', style=LABEL_STYLE),
+                dcc.Graph(id='vocalisation-heatmap')
+            ]),
+            html.Div(style=CARD_STYLE, children=[
                 html.Label('', style=LABEL_STYLE),
                 dcc.Graph(id='Vocalisation-nonnative')
             ]),
@@ -289,6 +293,14 @@ def species_vocalisation_bar(selected_species, selected_aviaries, hour_range, in
     fig.update_layout(xaxis_title="Time of Day", yaxis_title="Total Vocalisations", legend_title="Species")
     fig.update_xaxes(categoryorder='array', categoryarray=ordered_labels(hour_range, interval))
     return fig
+
+
+@callback(Output('vocalisation-heatmap', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), Input('interval-selector', 'value'), prevent_initial_call=True)
+def species_vocalisation_heatmap(selected_species, selected_aviaries, hour_range, interval):
+    if not selected_species or not selected_aviaries:
+        return go.Figure()
+    df, _ = get_cached_data()
+    return heatmap_plot(df, selected_species, hour_range, interval)
 
 
 @callback(Output('Vocalisation-nonnative', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), Input('interval-selector', 'value'), prevent_initial_call=True)
