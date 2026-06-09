@@ -23,6 +23,7 @@ def add_time_cols(df, interval=30):
         else:
             df['time_slot'] = df['hour'] * 4
         df['time_label'] = df['time_slot'].apply(lambda x: f"{x//4}:{(x%4)*15:02d}")
+
     return df
 
 

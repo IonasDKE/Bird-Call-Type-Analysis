@@ -23,7 +23,7 @@ pio.templates.default = "plotly"
 plot_df = None
 native_species = None
 
-update_aviary_data(["Zoo Eindhoven, Large Aviary"])
+update_aviary_data(["Zoo Eindhoven, Large Aviary week 2"])
 plot_df, population_data = get_cached_data()
 unique_events = [e for e in plot_df["event"].dropna().unique().tolist() if e is not None]
 native_species = [s for s in population_data["species"].unique().tolist() if s is not None]
@@ -321,7 +321,7 @@ def indicator_calls(selected_species, selected_aviaries, hour_range, interval):
     df, _ = get_cached_data()
     df = apply_time_filter(df, hour_range, interval)
     subset = df[df["species"].isin(selected_species) & df["call_type"].notnull()]
-    fig = go.Figure(data=[go.Indicator(mode="number", value=subset[subset["call_type"]=="calls"].shape[0], number={"font": {"size": 40}}, title={"text": "Number of Calls", "font": {"size": 16}})])
+    fig = go.Figure(data=[go.Indicator(mode="number", value=subset[subset["call_type"]=="call"].shape[0], number={"font": {"size": 40}}, title={"text": "Number of Calls", "font": {"size": 16}})])
     fig.update_layout(paper_bgcolor=px.colors.qualitative.Pastel[2], plot_bgcolor=px.colors.qualitative.Pastel[2])
     return fig
 
@@ -333,7 +333,7 @@ def indicator_songs(selected_species, selected_aviaries, hour_range, interval):
     df, _ = get_cached_data()
     df = apply_time_filter(df, hour_range, interval)
     subset = df[df["species"].isin(selected_species) & df["call_type"].notnull()]
-    fig = go.Figure(data=[go.Indicator(mode="number", value=subset[subset["call_type"]=="songs"].shape[0], number={"font": {"size": 40}}, title={"text": "Number of Songs", "font": {"size": 16}})])
+    fig = go.Figure(data=[go.Indicator(mode="number", value=subset[subset["call_type"]=="song"].shape[0], number={"font": {"size": 40}}, title={"text": "Number of Songs", "font": {"size": 16}})])
     fig.update_layout(paper_bgcolor=px.colors.qualitative.Pastel[3], plot_bgcolor=px.colors.qualitative.Pastel[3])
     return fig
 
