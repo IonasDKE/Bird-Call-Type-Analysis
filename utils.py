@@ -97,6 +97,10 @@ def update_aviary_data(selected_aviaries_path):
         else:
             print(f"File {file_path} not found.")
 
+    aviary_metadata["datetime"] = pd.to_datetime(aviary_metadata["datetime"])
+    aviary_metadata["hour"] = aviary_metadata["datetime"].dt.hour
+    aviary_metadata["minute"] = aviary_metadata["datetime"].dt.minute
+
     aviary_metadata.to_pickle("cached_plot_df.pkl")
     aviary_population_data.to_pickle("cached_aviary_population_data.pkl")
 

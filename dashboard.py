@@ -1,11 +1,7 @@
 import dash
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import os, re
-from scipy.stats import chi2_contingency
-import queue
-from collections import Counter
 
 from dash import Dash, html, dcc, Input, Output, callback
 import dash_ag_grid as dag
@@ -102,7 +98,7 @@ app.layout = html.Div(
             dcc.Dropdown(
                 id='aviary-dropdown',
                 options=[file.replace("_processed.csv", "") for file in os.listdir("processed_data") if file.endswith(".csv")],
-                value="Zoo Eindhoven, Large Aviary",
+                value="Zoo Eindhoven, Large Aviary week 2",
                 multi=True,
                 style={"fontFamily": FONT},
             ),
@@ -182,10 +178,6 @@ app.layout = html.Div(
                 html.Label("Vocalisations over Time by Species", style=LABEL_STYLE),
                 dcc.Graph(id='vocalisation-bar', style={"height": "340px"}),
             ]),
-            html.Div(style={"flex": "1", "minWidth": 0}, children=[
-                html.Label("Wild vs Aviary Bird Vocalisations", style=LABEL_STYLE),
-                dcc.Graph(id='Vocalisation-nonnative', style={"height": "340px"}),
-            ]),
         ]),
 
         
@@ -260,6 +252,7 @@ app.layout = html.Div(
         ]),
     ]
 )
+
 
 # Slider updates when interval changes
 @callback(
@@ -373,10 +366,12 @@ def species_vocalisation_bar(selected_species, selected_aviaries, hour_range, in
     df, _ = get_cached_data()
     df = apply_time_filter(df, hour_range, interval)
     subset_df = df[df["species"].isin(selected_species)]
+    n_days = df["datetime"].dt.date.nunique()
     grouped = subset_df.groupby(["time_slot", "time_label", "species"]).size().reset_index(name="total_count").sort_values("time_slot")
+    grouped["total_count"] = grouped["total_count"] / n_days
     interval_label = {15: "15-min", 30: "30-min", 60: "Hour"}[interval]
     fig = px.bar(grouped, x="time_label", y="total_count", color="species", title=f"Distribution of Vocalisations per {interval_label} Interval")
-    fig.update_layout(xaxis_title="Time of Day", yaxis_title="Total Vocalisations", legend_title="Species")
+    fig.update_layout(xaxis_title="Time of Day", yaxis_title="Average Vocalisations per Day", legend_title="Species")
     fig.update_xaxes(categoryorder='array', categoryarray=ordered_labels(hour_range, interval))
     return fig
 
@@ -388,7 +383,7 @@ def species_vocalisation_heatmap(selected_species, selected_aviaries, hour_range
     df, _ = get_cached_data()
     return heatmap_plot(df, selected_species, hour_range, interval)
 
-
+"""
 @callback(Output('Vocalisation-nonnative', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), Input('interval-selector', 'value'), prevent_initial_call=True)
 def vocalisation_nonnative(selected_species, selected_aviaries, hour_range, interval):
     if not selected_species or not selected_aviaries:
@@ -403,7 +398,7 @@ def vocalisation_nonnative(selected_species, selected_aviaries, hour_range, inte
                  labels={"time_label": "Time of Day", "count": "Vocalisations"})
     fig.update_xaxes(categoryorder='array', categoryarray=ordered_labels(hour_range, interval))
     return fig
-
+"""
 
 @callback(Output('species-pie-chart', 'figure'), Input('species-dropdown', 'value'), Input('aviary-dropdown', 'value'), Input('hour-slider', 'value'), Input('interval-selector', 'value'), prevent_initial_call=True)
 def species_pie_chart(selected_species, selected_aviaries, hour_range, interval):
@@ -412,7 +407,9 @@ def species_pie_chart(selected_species, selected_aviaries, hour_range, interval)
     df, _ = get_cached_data()
     df = apply_time_filter(df, hour_range, interval)
     subset_df = df[df["species"].isin(selected_species) & df["species"].notna()]
+    n_days = subset_df["datetime"].dt.date.nunique()
     counts = subset_df["species"].value_counts().reset_index()
+    counts["count"] = counts["count"]/n_days
     counts.columns = ["species", "count"]
     fig = px.pie(counts, names="species", values="count", title="Vocalisation Share per Species", hole=0.35)
     fig.update_traces(textposition='inside', textinfo='percent+label')
@@ -431,7 +428,10 @@ def vocalisation_event_bar(selected_events, selected_species, selected_aviaries,
     subset_df = df[df["species"].isin(selected_species) & df['event'].isin(selected_events) & df['event'].notna() & df['species'].notna()]
     if subset_df.empty:
         return go.Figure()
+    
+    n_days = subset_df["datetime"].dt.date.nunique()
     grouped = subset_df.groupby(["species", "event"]).size().reset_index(name="total_count")
+    grouped["total_count"] = grouped["total_count"]/n_days
     grouped.sort_values(by="total_count", ascending=False, inplace=True)
     fig_bar = px.bar(grouped, x="total_count", y="species", color="event", title="Distribution of Events per Species", orientation="h")
     fig_bar.update_layout(xaxis_title="Total Vocalisations with Event", yaxis_title="Species", legend_title="Events")
@@ -449,7 +449,9 @@ def update_event_bar_plot(selected_events, selected_aviaries, selected_species, 
     subset = df[df["species"].isin(selected_species) & df['event'].isin(selected_events) & df['event'].notna()]
     if subset.empty:
         return go.Figure()
+    n_days = subset["datetime"].dt.date.nunique()
     grouped = subset.groupby(["time_slot", "time_label", "event"]).size().reset_index(name="total_count").sort_values("time_slot")
+    grouped["total_count"] = grouped["total_count"]/n_days
     interval_label = {15: "15-min", 30: "30-min", 60: "Hour"}[interval]
     fig = px.bar(grouped, x="time_label", y="total_count", color="event", title=f"Distribution of Events per {interval_label} Interval")
     fig.update_layout(xaxis_title="Time of Day", yaxis_title="Event count", legend_title="Events")
@@ -478,7 +480,9 @@ def event_vocalisation_causal_graph(selected_species, selected_event, selected_a
     if subset_df.empty:
         return go.Figure()
     subset_df["selected event presence"] = subset_df["event"].apply(lambda x: "Yes" if x == selected_event else "No")
+    n_days = subset_df["datetime"].dt.date.nunique()
     grouped = subset_df.groupby(["time_slot", "time_label", "selected event presence"]).size().reset_index(name="total_count").sort_values("time_slot")
+    grouped["total_count"] = grouped["total_count"]/n_days
     interval_label = {15: "15-min", 30: "30-min", 60: "Hour"}[interval]
     fig = px.bar(grouped, x="time_label", y="total_count", color="selected event presence", barmode="group",
                  title=f"Vocalisation Count of {selected_species} per {interval_label} Interval with respect to {selected_event} Event")
