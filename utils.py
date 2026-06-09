@@ -28,22 +28,28 @@ def add_time_cols(df, interval=30):
 
 
 def get_slider_config(interval):
-    """Returns (min, max, marks) for the RangeSlider based on interval."""
-    if interval == 60:
-        n = 24
-        marks = {i: f"{i}:00" for i in range(0, 24, 3)}
-    elif interval == 30:
-        n = 48
-        marks = {i: f"{i//2}:{'00' if i%2==0 else '30'}" for i in range(0, 48, 4)}
-    elif interval == 15:
-        n = 96
-        marks = {i: f"{i//4}:{(i%4)*15:02d}" for i in range(0, 96, 8)}
-    return n - 1, marks
+    marks = {
+        i: {
+            "label": f"{i}:00",
+            "style": {
+                "color": "#E6EDF3",
+                "fontSize": "14px"
+            }
+        }
+        for i in range(0, 24)
+    }
+    return 23, marks
+
+def hour_range_to_slots(hour_range, interval):
+    """Convert [start_hour, end_hour] to [start_slot, end_slot] for the given interval."""
+    slots_per_hour = 60 // interval
+    return [hour_range[0] * slots_per_hour, (hour_range[1] + 1) * slots_per_hour - 1]
 
 
 def apply_time_filter(df, hour_range, interval=30):
     df = add_time_cols(df, interval)
-    return df[(df['time_slot'] >= hour_range[0]) & (df['time_slot'] <= hour_range[1])]
+    slot_range = hour_range_to_slots(hour_range, interval)
+    return df[(df['time_slot'] >= slot_range[0]) & (df['time_slot'] <= slot_range[1])]
 
 
 def ordered_labels(hour_range, interval=30):
@@ -53,7 +59,20 @@ def ordered_labels(hour_range, interval=30):
         all_labels = [f"{h//2}:{'00' if h%2==0 else '30'}" for h in range(0, 48)]
     elif interval == 15:
         all_labels = [f"{h//4}:{(h%4)*15:02d}" for h in range(0, 96)]
-    return [all_labels[i] for i in range(hour_range[0], hour_range[1] + 1)]
+    slot_range = hour_range_to_slots(hour_range, interval)
+    return [all_labels[i] for i in range(slot_range[0], slot_range[1] + 1)]
+
+
+def get_xaxis_tick_config(hour_range, interval):
+    """
+    Returns tickvals for clean, uniform x-axis ticks on bar/heatmap plots.
+    - 15-min mode: tick every 30 min (every 2 slots)
+    - 30-min mode: tick every hour (every 2 slots)
+    - 60-min mode: tick every hour (every slot)
+    """
+    all_labels = ordered_labels(hour_range, interval)
+    tick_step = 1 if interval == 60 else 2
+    return [all_labels[i] for i in range(0, len(all_labels), tick_step)]
 
 
 def update_aviary_data(selected_aviaries_path):
@@ -158,11 +177,12 @@ def heatmap_plot(df, selected_species, hour_range, interval):
     ))
 
     interval_label = {15: "15-min", 30: "30-min", 60: "Hour"}[interval]
+    tick_labels = get_xaxis_tick_config(hour_range, interval)
     fig.update_layout(
         title=f"Vocalisation Heatmap — Species × Time ({interval_label} intervals)",
         xaxis_title="Time of Day",
         yaxis_title="Species",
-        xaxis=dict(tickangle=-45),
+        xaxis=dict(tickangle=-45, tickmode="array", tickvals=tick_labels, ticktext=tick_labels),
         margin=dict(l=160),
     )
     return fig

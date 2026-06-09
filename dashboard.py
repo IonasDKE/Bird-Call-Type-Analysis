@@ -131,10 +131,9 @@ app.layout = html.Div(
             ]),
             dcc.RangeSlider(
                 id='hour-slider',
-                min=0, max=47, step=1,
-                value=[0, 47],
-                marks={i: f"{i//2}:{'00' if i%2==0 else '30'}" for i in range(0, 48, 4)},
-                tooltip={"placement": "bottom", "always_visible": False},
+                min=0, max=23, step=1,
+                value=[0, 23],
+                marks={i: {"label": f"{i}:00", "style": {"color": COLORS["text"]}} for i in range(0, 24, 3)},                tooltip={"placement": "bottom", "always_visible": False},
             ),
         ]),
 
@@ -372,7 +371,9 @@ def species_vocalisation_bar(selected_species, selected_aviaries, hour_range, in
     interval_label = {15: "15-min", 30: "30-min", 60: "Hour"}[interval]
     fig = px.bar(grouped, x="time_label", y="total_count", color="species", title=f"Distribution of Vocalisations per {interval_label} Interval")
     fig.update_layout(xaxis_title="Time of Day", yaxis_title="Average Vocalisations per Day", legend_title="Species")
-    fig.update_xaxes(categoryorder='array', categoryarray=ordered_labels(hour_range, interval))
+    tick_labels = get_xaxis_tick_config(hour_range, interval)
+    fig.update_xaxes(categoryorder='array', categoryarray=ordered_labels(hour_range, interval),
+                     tickmode="array", tickvals=tick_labels, ticktext=tick_labels)
     return fig
 
 
@@ -455,7 +456,9 @@ def update_event_bar_plot(selected_events, selected_aviaries, selected_species, 
     interval_label = {15: "15-min", 30: "30-min", 60: "Hour"}[interval]
     fig = px.bar(grouped, x="time_label", y="total_count", color="event", title=f"Distribution of Events per {interval_label} Interval")
     fig.update_layout(xaxis_title="Time of Day", yaxis_title="Event count", legend_title="Events")
-    fig.update_xaxes(categoryorder='array', categoryarray=ordered_labels(hour_range, interval))
+    tick_labels = get_xaxis_tick_config(hour_range, interval)
+    fig.update_xaxes(categoryorder='array', categoryarray=ordered_labels(hour_range, interval),
+                     tickmode="array", tickvals=tick_labels, ticktext=tick_labels)
     return fig
 
 
@@ -487,7 +490,9 @@ def event_vocalisation_causal_graph(selected_species, selected_event, selected_a
     fig = px.bar(grouped, x="time_label", y="total_count", color="selected event presence", barmode="group",
                  title=f"Vocalisation Count of {selected_species} per {interval_label} Interval with respect to {selected_event} Event")
     fig.update_layout(xaxis_title="Time of Day", yaxis_title="Total Vocalisations", legend_title=f"Presence of event: {selected_event}")
-    fig.update_xaxes(categoryorder='array', categoryarray=ordered_labels(hour_range, interval))
+    tick_labels = get_xaxis_tick_config(hour_range, interval)
+    fig.update_xaxes(categoryorder='array', categoryarray=ordered_labels(hour_range, interval),
+                     tickmode="array", tickvals=tick_labels, ticktext=tick_labels)
     return fig
 
 
