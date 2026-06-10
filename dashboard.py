@@ -139,91 +139,95 @@ app.layout = html.Div(
 
         
         # Species overview
-        html.H2("Species Overview", style=SECTION_HEADER_STYLE),
-        html.P("Distribution of vocalisations across species and time of day.", style=SECTION_SUB_STYLE),
-
-        # Species filter (full width, above section)
-        html.Div(style={**CARD_STYLE, "marginBottom": "12px"}, children=[
-            html.Label("Bird Species", style=LABEL_STYLE),
-            dcc.Dropdown(
-                id='species-dropdown',
-                options=native_species,
-                value=native_species,
-                multi=True,
-                style={"fontFamily": FONT},
-            ),
-        ]),
-
-        html.Div(style=CARD_SPLIT_STYLE, children=[
-            html.Div(style={"flex": "1", "minWidth": 0}, children=[
-                html.Label("Population", style=LABEL_STYLE),
-                dcc.Graph(id='population-table', style={"height": "320px"}),
-            ]),
-            html.Div(style={"flex": "1", "minWidth": 0}, children=[
-                html.Label("Vocalisation Share per Species", style=LABEL_STYLE),
-                dcc.Graph(id='species-pie-chart', style={"height": "320px"}),
-            ]),
-        ]),
-
-        # Heatmap
         html.Div(style=CARD_STYLE, children=[
-            html.Label("Vocalisation Heatmap — Species × Time of Day", style=LABEL_STYLE),
-            dcc.Graph(id='vocalisation-heatmap', style={"height": "360px"}),
-        ]),
+            html.H2("Species Overview", style=SECTION_HEADER_STYLE),
+            html.P("Distribution of vocalisations across species and time of day.", style=SECTION_SUB_STYLE),
 
-        # Row: stacked bar | wild vs aviary
-        html.Div(style=CARD_SPLIT_STYLE, children=[
-            html.Div(style={"flex": "1", "minWidth": 0}, children=[
-                html.Label("Vocalisations over Time by Species", style=LABEL_STYLE),
-                dcc.Graph(id='vocalisation-bar', style={"height": "340px"}),
+            # Species filter (full width, above section)
+            html.Div(style={**CARD_STYLE, "marginBottom": "12px"}, children=[
+                html.Label("Bird Species", style=LABEL_STYLE),
+                dcc.Dropdown(
+                    id='species-dropdown',
+                    options=native_species,
+                    value=native_species,
+                    multi=True,
+                    style={"fontFamily": FONT},
+                ),
+            ]),
+
+            html.Div(style=CARD_SPLIT_STYLE, children=[
+                html.Div(style={"flex": "1", "minWidth": 0}, children=[
+                    html.Label("Population", style=LABEL_STYLE),
+                    dcc.Graph(id='population-table', style={"height": "320px"}),
+                ]),
+                html.Div(style={"flex": "1", "minWidth": 0}, children=[
+                    html.Label("Vocalisation Share per Species", style=LABEL_STYLE),
+                    dcc.Graph(id='species-pie-chart', style={"height": "320px"}),
+                ]),
+            ]),
+
+            # Heatmap
+            html.Div(style=CARD_STYLE, children=[
+                html.Label("Vocalisation Heatmap — Species × Time of Day", style=LABEL_STYLE),
+                dcc.Graph(id='vocalisation-heatmap', style={"height": "360px"}),
+            ]),
+
+            # Row: stacked bar | wild vs aviary
+            html.Div(style=CARD_SPLIT_STYLE, children=[
+                html.Div(style={"flex": "1", "minWidth": 0}, children=[
+                    html.Label("Vocalisations over Time by Species", style=LABEL_STYLE),
+                    dcc.Graph(id='vocalisation-bar', style={"height": "340px"}),
+                ]),
             ]),
         ]),
 
         
         # Event analysis
-        html.H2("Acoustic Event Analysis", style=SECTION_HEADER_STYLE),
-        html.P("How identified sound events co-occur with bird vocalisations.", style=SECTION_SUB_STYLE),
 
-        # Event filter + indicator
-        html.Div(style=CARD_SPLIT_STYLE, children=[
-            html.Div(style={"flex": "2", "minWidth": 0}, children=[
-                html.Label("Events", style=LABEL_STYLE),
-                dcc.Dropdown(
-                    id='event-dropdown',
-                    options=unique_events,
-                    value=unique_events,
-                    multi=True,
-                    style={"fontFamily": FONT},
-                ),
-            ]),
-            html.Div(style={"flex": "1", "minWidth": 0}, children=[
-                dcc.Graph(id='ind_events', style={"height": "120px"}),
-            ]),
-        ]),
-
-        # Row: event distribution over time | event per species
-        html.Div(style=CARD_SPLIT_STYLE, children=[
-            html.Div(style={"flex": "3", "minWidth": 0}, children=[
-                html.Label("Event Distribution over Time", style=LABEL_STYLE),
-                dcc.Graph(id='bar-plot-graph', style={"height": "340px"}),
-            ]),
-            html.Div(style={"flex": "2", "minWidth": 0}, children=[
-                html.Label("Event Distribution per Species", style=LABEL_STYLE),
-                dcc.Graph(id='vocalisation-event-bar', style={"height": "340px"}),
-            ]),
-        ]),
-
-        # Flowchart
         html.Div(style=CARD_STYLE, children=[
-            html.Label("Flowchart — Species → Event → Call Type", style=LABEL_STYLE),
-            dcc.Graph(id='flowchart-graph', style={"height": "420px"}),
+            html.H2("Acoustic Event Analysis", style=SECTION_HEADER_STYLE),
+            html.P("How identified sound events co-occur with bird vocalisations.", style=SECTION_SUB_STYLE),
+            # Event filter + indicator
+            html.Div(style=CARD_SPLIT_STYLE, children=[
+                html.Div(style={"flex": "2", "minWidth": 0}, children=[
+                    html.Label("Events", style=LABEL_STYLE),
+                    dcc.Dropdown(
+                        id='event-dropdown',
+                        options=unique_events,
+                        value=unique_events,
+                        multi=True,
+                        style={"fontFamily": FONT},
+                    ),
+                ]),
+                html.Div(style={"flex": "1", "minWidth": 0}, children=[
+                    dcc.Graph(id='ind_events', style={"height": "120px"}),
+                ]),
+            ]),
+
+            # Row: event distribution over time | event per species
+            html.Div(style=CARD_SPLIT_STYLE, children=[
+                html.Div(style={"flex": "3", "minWidth": 0}, children=[
+                    html.Label("Event Distribution over Time", style=LABEL_STYLE),
+                    dcc.Graph(id='bar-plot-graph', style={"height": "340px"}),
+                ]),
+                html.Div(style={"flex": "2", "minWidth": 0}, children=[
+                    html.Label("Event Distribution per Species", style=LABEL_STYLE),
+                    dcc.Graph(id='vocalisation-event-bar', style={"height": "340px"}),
+                ]),
+            ]),
+
+            # Flowchart
+            html.Div(style=CARD_STYLE, children=[
+                html.Label("Flowchart — Species → Event → Call Type", style=LABEL_STYLE),
+                dcc.Graph(id='flowchart-graph', style={"height": "420px"}),
+            ]),
         ]),
 
         # Per-species event drill-down
-        html.H2("Species × Event Drill-down", style=SECTION_HEADER_STYLE),
-        html.P("Select a species and an event to see how vocalisation rate changes with its presence.", style=SECTION_SUB_STYLE),
-
         html.Div(style=CARD_STYLE, children=[
+            html.H2("Species × Event Drill-down", style=SECTION_HEADER_STYLE),
+            html.P("Select a species and an event to see how vocalisation rate changes with its presence.", style=SECTION_SUB_STYLE),
+
             html.Div(style={"display": "flex", "gap": "16px", "marginBottom": "16px"}, children=[
                 html.Div(style={"flex": "1"}, children=[
                     html.Label("Species", style=LABEL_STYLE),
