@@ -166,12 +166,6 @@ app.layout = html.Div(
                 ]),
             ]),
 
-            # Heatmap
-            html.Div(style=CARD_STYLE, children=[
-                html.Label("Vocalisation Heatmap — Species × Time of Day", style=LABEL_STYLE),
-                dcc.Graph(id='vocalisation-heatmap', style={"height": "360px"}),
-            ]),
-
             # Row: stacked bar | wild vs aviary
             html.Div(style=CARD_SPLIT_STYLE, children=[
                 html.Div(style={"flex": "1", "minWidth": 0}, children=[
@@ -179,11 +173,16 @@ app.layout = html.Div(
                     dcc.Graph(id='vocalisation-bar', style={"height": "340px"}),
                 ]),
             ]),
+
+            # Heatmap
+            html.Div(style=CARD_STYLE, children=[
+                html.Label("Vocalisation Heatmap — Species × Time of Day", style=LABEL_STYLE),
+                dcc.Graph(id='vocalisation-heatmap', style={"height": "360px"}),
+            ]),
         ]),
 
         
         # Event analysis
-
         html.Div(style=CARD_STYLE, children=[
             html.H2("Acoustic Event Analysis", style=SECTION_HEADER_STYLE),
             html.P("How identified sound events co-occur with bird vocalisations.", style=SECTION_SUB_STYLE),

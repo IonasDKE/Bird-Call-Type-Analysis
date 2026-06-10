@@ -196,8 +196,12 @@ def flowchart_plot(plot_df):
     event_dim = go.parcats.Dimension(values=subset_df["event"], label="Event")
     call_type_dim = go.parcats.Dimension(values=subset_df["call_type"], label="Vocalisation Type")
 
+    subset_df['bool'] = subset_df["call_type"] == 'call'
+    color = subset_df.bool.astype('int')
+    colorscale = [[0, 'lightsteelblue'], [1, 'mediumseagreen']]
+
     fig = go.Figure(data=[go.Parcats(dimensions=[specie_dim, event_dim, call_type_dim],
-                                     line={"color": px.colors.qualitative.Plotly[0]},
+                                     line={"color": color, "colorscale": colorscale},
                                      hoveron="color",
                                      hoverinfo="all",
                                      labelfont={'size': 18, 'family': "'Inter', sans-serif"},
